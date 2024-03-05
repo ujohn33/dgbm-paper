@@ -1,0 +1,22 @@
+Lmod has detected the following error: A different version of the 'GCCcore'
+module is already loaded (see output of 'ml').
+You should load another 'GCC' module that is compatible with the currently
+loaded version of 'GCCcore'.
+Use 'ml spider GCC' to get an overview of the available versions.
+
+
+If you don't understand the warning or error, contact the helpdesk at
+hpc@vub.be 
+While processing the following module(s):
+    Module fullname        Module Filename
+    ---------------        ---------------
+    GCC/12.3.0             /apps/brussel/RL8/skylake/modules/2023a/all/GCC/12.3.0.lua
+    gfbf/2023a             /apps/brussel/RL8/skylake/modules/2023a/all/gfbf/2023a.lua
+    sympy/1.12-gfbf-2023a  /apps/brussel/RL8/skylake/modules/2023a/all/sympy/1.12-gfbf-2023a.lua
+
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) OpenSSL/1.1
+
+/var/spool/slurm/slurmd/job9059214/slurm_script: line 35: 451233 Killed                  python ng_boost_single_run.py $SLURM_ARRAY_TASK_ID
+slurmstepd: error: Detected 1 oom_kill event in StepId=9059214.batch. Some of the step tasks have been OOM Killed.

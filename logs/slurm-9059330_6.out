@@ -1,0 +1,33 @@
+Lmod has detected the following error: A different version of the 'GCCcore'
+module is already loaded (see output of 'ml').
+You should load another 'GCC' module that is compatible with the currently
+loaded version of 'GCCcore'.
+Use 'ml spider GCC' to get an overview of the available versions.
+
+
+If you don't understand the warning or error, contact the helpdesk at
+hpc@vub.be 
+While processing the following module(s):
+    Module fullname        Module Filename
+    ---------------        ---------------
+    GCC/12.3.0             /apps/brussel/RL8/skylake/modules/2023a/all/GCC/12.3.0.lua
+    gfbf/2023a             /apps/brussel/RL8/skylake/modules/2023a/all/gfbf/2023a.lua
+    sympy/1.12-gfbf-2023a  /apps/brussel/RL8/skylake/modules/2023a/all/sympy/1.12-gfbf-2023a.lua
+
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) OpenSSL/1.1
+
+== Dataset=Protein Structure X.shape=(45730, 9) MLE/Normal
+Best iteration: 1990
+[1/20] BestIter=0 RMSE: Val=2.1184 Test=4.7589 NLL: Test=2.9894
+Best iteration: 2000
+[2/20] BestIter=0 RMSE: Val=2.1374 Test=4.7095 NLL: Test=3.0295
+Best iteration: 1262
+[3/20] BestIter=0 RMSE: Val=2.1532 Test=4.7582 NLL: Test=2.8832
+Best iteration: 2000
+[4/20] BestIter=0 RMSE: Val=2.1368 Test=4.7092 NLL: Test=2.8239
+Best iteration: 2000
+[5/20] BestIter=0 RMSE: Val=2.1442 Test=4.6826 NLL: Test=2.9829
+Protein Structure
+== GBM=0.0000 +/- 0.0000, RMSE GBMLSS=4.7237 ± 0.0301, NLL GBMLSS=2.9418 ± 0.0761, TIME = 56.1874

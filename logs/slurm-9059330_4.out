@@ -1,0 +1,63 @@
+Lmod has detected the following error: A different version of the 'GCCcore'
+module is already loaded (see output of 'ml').
+You should load another 'GCC' module that is compatible with the currently
+loaded version of 'GCCcore'.
+Use 'ml spider GCC' to get an overview of the available versions.
+
+
+If you don't understand the warning or error, contact the helpdesk at
+hpc@vub.be 
+While processing the following module(s):
+    Module fullname        Module Filename
+    ---------------        ---------------
+    GCC/12.3.0             /apps/brussel/RL8/skylake/modules/2023a/all/GCC/12.3.0.lua
+    gfbf/2023a             /apps/brussel/RL8/skylake/modules/2023a/all/gfbf/2023a.lua
+    sympy/1.12-gfbf-2023a  /apps/brussel/RL8/skylake/modules/2023a/all/sympy/1.12-gfbf-2023a.lua
+
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) OpenSSL/1.1
+
+== Dataset=Naval Propulsion X.shape=(11934, 16) MLE/Normal
+Best iteration: 2000
+[1/20] BestIter=0 RMSE: Val=0.0821 Test=0.0073 NLL: Test=-4.3923
+Best iteration: 2000
+[2/20] BestIter=0 RMSE: Val=0.0808 Test=0.0068 NLL: Test=-4.3912
+Best iteration: 2000
+[3/20] BestIter=0 RMSE: Val=0.0802 Test=0.0066 NLL: Test=-4.3943
+Best iteration: 2000
+[4/20] BestIter=0 RMSE: Val=0.0828 Test=0.0068 NLL: Test=-4.4552
+Best iteration: 2000
+[5/20] BestIter=0 RMSE: Val=0.0826 Test=0.0070 NLL: Test=-4.3734
+Best iteration: 2000
+[6/20] BestIter=0 RMSE: Val=0.0816 Test=0.0067 NLL: Test=-4.3598
+Best iteration: 2000
+[7/20] BestIter=0 RMSE: Val=0.0838 Test=0.0068 NLL: Test=-4.3565
+Best iteration: 2000
+[8/20] BestIter=0 RMSE: Val=0.0741 Test=0.0054 NLL: Test=-4.5144
+Best iteration: 2000
+[9/20] BestIter=0 RMSE: Val=0.0825 Test=0.0067 NLL: Test=-4.4268
+Best iteration: 2000
+[10/20] BestIter=0 RMSE: Val=0.0822 Test=0.0070 NLL: Test=-4.4040
+Best iteration: 2000
+[11/20] BestIter=0 RMSE: Val=0.0863 Test=0.0074 NLL: Test=-4.2843
+Best iteration: 2000
+[12/20] BestIter=0 RMSE: Val=0.0823 Test=0.0071 NLL: Test=-4.3558
+Best iteration: 2000
+[13/20] BestIter=0 RMSE: Val=0.0780 Test=0.0065 NLL: Test=-4.4090
+Best iteration: 2000
+[14/20] BestIter=0 RMSE: Val=0.0843 Test=0.0070 NLL: Test=-4.3271
+Best iteration: 2000
+[15/20] BestIter=0 RMSE: Val=0.0822 Test=0.0063 NLL: Test=-4.4615
+Best iteration: 2000
+[16/20] BestIter=0 RMSE: Val=0.0783 Test=0.0058 NLL: Test=-4.5177
+Best iteration: 2000
+[17/20] BestIter=0 RMSE: Val=0.0856 Test=0.0071 NLL: Test=-4.3792
+Best iteration: 2000
+[18/20] BestIter=0 RMSE: Val=0.0815 Test=0.0063 NLL: Test=-4.4739
+Best iteration: 2000
+[19/20] BestIter=0 RMSE: Val=0.0863 Test=0.0075 NLL: Test=-4.2945
+Best iteration: 2000
+[20/20] BestIter=0 RMSE: Val=0.0830 Test=0.0074 NLL: Test=-4.3255
+Naval Propulsion
+== GBM=0.0000 +/- 0.0000, RMSE GBMLSS=0.0068 ± 0.0005, NLL GBMLSS=-4.3948 ± 0.0639, TIME = 25.0693

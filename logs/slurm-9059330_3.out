@@ -1,0 +1,63 @@
+Lmod has detected the following error: A different version of the 'GCCcore'
+module is already loaded (see output of 'ml').
+You should load another 'GCC' module that is compatible with the currently
+loaded version of 'GCCcore'.
+Use 'ml spider GCC' to get an overview of the available versions.
+
+
+If you don't understand the warning or error, contact the helpdesk at
+hpc@vub.be 
+While processing the following module(s):
+    Module fullname        Module Filename
+    ---------------        ---------------
+    GCC/12.3.0             /apps/brussel/RL8/skylake/modules/2023a/all/GCC/12.3.0.lua
+    gfbf/2023a             /apps/brussel/RL8/skylake/modules/2023a/all/gfbf/2023a.lua
+    sympy/1.12-gfbf-2023a  /apps/brussel/RL8/skylake/modules/2023a/all/sympy/1.12-gfbf-2023a.lua
+
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) OpenSSL/1.1
+
+== Dataset=Kin8nm X.shape=(8192, 8) MLE/Normal
+Best iteration: 2000
+[1/20] BestIter=0 RMSE: Val=0.4052 Test=0.1710 NLL: Test=-0.4654
+Best iteration: 1907
+[2/20] BestIter=0 RMSE: Val=0.4100 Test=0.1696 NLL: Test=-0.4867
+Best iteration: 1348
+[3/20] BestIter=0 RMSE: Val=0.4110 Test=0.1710 NLL: Test=-0.4733
+Best iteration: 1716
+[4/20] BestIter=0 RMSE: Val=0.4006 Test=0.1724 NLL: Test=-0.5029
+Best iteration: 1692
+[5/20] BestIter=0 RMSE: Val=0.4006 Test=0.1774 NLL: Test=-0.4813
+Best iteration: 1614
+[6/20] BestIter=0 RMSE: Val=0.3928 Test=0.1701 NLL: Test=-0.5136
+Best iteration: 2000
+[7/20] BestIter=0 RMSE: Val=0.4106 Test=0.1748 NLL: Test=-0.4768
+Best iteration: 1700
+[8/20] BestIter=0 RMSE: Val=0.4099 Test=0.1662 NLL: Test=-0.5238
+Best iteration: 1252
+[9/20] BestIter=0 RMSE: Val=0.4150 Test=0.1628 NLL: Test=-0.5351
+Best iteration: 1999
+[10/20] BestIter=0 RMSE: Val=0.4075 Test=0.1820 NLL: Test=-0.4376
+Best iteration: 1584
+[11/20] BestIter=0 RMSE: Val=0.3988 Test=0.1686 NLL: Test=-0.4896
+Best iteration: 1644
+[12/20] BestIter=0 RMSE: Val=0.4110 Test=0.1779 NLL: Test=-0.4851
+Best iteration: 1445
+[13/20] BestIter=0 RMSE: Val=0.4095 Test=0.1749 NLL: Test=-0.4705
+Best iteration: 1870
+[14/20] BestIter=0 RMSE: Val=0.4025 Test=0.1727 NLL: Test=-0.4828
+Best iteration: 1739
+[15/20] BestIter=0 RMSE: Val=0.4058 Test=0.1670 NLL: Test=-0.5087
+Best iteration: 1767
+[16/20] BestIter=0 RMSE: Val=0.4051 Test=0.1742 NLL: Test=-0.5023
+Best iteration: 1815
+[17/20] BestIter=0 RMSE: Val=0.4120 Test=0.1702 NLL: Test=-0.4586
+Best iteration: 1637
+[18/20] BestIter=0 RMSE: Val=0.4057 Test=0.1713 NLL: Test=-0.4748
+Best iteration: 1998
+[19/20] BestIter=0 RMSE: Val=0.3940 Test=0.1771 NLL: Test=-0.4963
+Best iteration: 1908
+[20/20] BestIter=0 RMSE: Val=0.4071 Test=0.1839 NLL: Test=-0.4636
+Kin8nm
+== GBM=0.0000 +/- 0.0000, RMSE GBMLSS=0.1728 ± 0.0051, NLL GBMLSS=-0.4864 ± 0.0229, TIME = 18.5181
