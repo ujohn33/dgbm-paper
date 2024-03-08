@@ -12,7 +12,7 @@ from lightgbmlss.model import *
 from lightgbmlss.distributions.Gaussian import *
 from scipy.stats import norm
 
-np.random.seed(1)
+np.random.seed(123)
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -141,60 +141,42 @@ def run_single_arguement(run_seed):
         X_trainall, X_test = X[train_index], X[test_index]
         y_trainall, y_test = y[train_index], y[test_index]
 
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_trainall, y_trainall, test_size=0.2
-        )
+        lgblss = LightGBMLSS(Gaussian(stabilization="None", response_fn="exp", loss_fn="nll"))
+        
+        # Perform hyperparameter optimization
+        np.random.seed(123)
+        dtrain = lgb.Dataset(X_trainall, y_trainall)
+        opt_param = lgblss.hyper_opt(param_dict, dtrain, num_boost_round=args["n_est"],
+                                     nfold=5, early_stopping_rounds=20, max_minutes=10, n_trials=30,
+                                     silence=True, seed=123, hp_seed=123)
 
-        y_true += list(y_test.flatten())
-
-
-        lgblss = LightGBMLSS(
-            Gaussian(stabilization="None",
-                    response_fn = "exp",
-                    loss_fn = "nll")
-        )
-
-        dtrain = lgb.Dataset(X_train, y_train)
-        deval = lgb.Dataset(X_val, y_val)
-        dtest = lgb.Dataset(X_test, y_test)
-        # Training with early stopping
-        evals_result = {}
-        default_params['early_stopping'] = 20
-        # Train Model with optimized hyperparameters
-        gbm = lgblss.train(default_params, dtrain, 
-                            num_boost_round = args["n_est"],
-                            valid_sets = [dtrain, deval]
-                            )
-
-        # Best iteration
-        print(f"Best iteration: {lgblss.booster.best_iteration}")
-
-        full_train_data = lgb.Dataset(X_trainall, y_trainall)
-        default_params['early_stopping'] = None
-
-        final_gbm = lgblss.train(default_params, full_train_data, 
-                            num_boost_round = lgblss.booster.best_iteration,
-                        )
+        print(opt_param)
+        opt_params = opt_param.copy()
+        n_rounds = opt_params["opt_rounds"]
+        del opt_params["opt_rounds"]
+        # Use optimized parameters to train your model
+        # Note: You might need to adjust the following line to use the `opt_param` properly, depending on how `lgblss.hyper_opt` returns the optimized parameters.
+        final_gbm = lgblss.train(opt_param, dtrain, num_boost_round=n_rounds)
+        
         # the final prediction for this fold
         forecast = lgblss.predict(X_test)
-        forecast_val = lgblss.predict(X_val)
+        #forecast_val = lgblss.predict(X_val)
 
         # After processing all folds for a dataset:
         end_time = time.time()  # End time measurement
         elapsed_time = end_time - start_time  # Calculate elapsed time
 
         lss_rmse += [np.sqrt(mean_squared_error(forecast['loc'].values, y_test))]
-        val_rmse = [np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))]
+        #val_rmse = [np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))]
         lss_nll += [-norm(forecast['loc'], forecast['scale']).logpdf(y_test.flatten()).mean()]
         times += [elapsed_time]
 
         print(
-                "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f"
+                "[%d/%d] BestIter=%d RMSE: Test=%.4f NLL: Test=%.4f"
                 % (
                     itr + 1,
                     args['n_splits'],
                     lgblss.booster.best_iteration,
-                    np.sqrt(val_rmse),
                     np.sqrt(mean_squared_error(forecast['loc'].values, y_test)),
                     lss_nll[-1],
                 )
