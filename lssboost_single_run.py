@@ -60,16 +60,6 @@ args = {
     "verbose": True,
 }
 
-# Define your hyperparameter space
-param_dict = {
-    "eta": ["float", {"low": 1e-5, "high": 1, "log": True}],
-    "max_depth": ["int", {"low": 1, "high": 10, "log": False}],
-    "num_leaves": ["int", {"low": 255, "high": 255, "log": False}],  # Constant for this example
-    "min_data_in_leaf": ["int", {"low": 20, "high": 20, "log": False}],  # Constant for this example
-    "min_gain_to_split": ["float", {"low": 1e-8, "high": 40, "log": False}],
-    "min_sum_hessian_in_leaf": ["float", {"low": 1e-8, "high": 500, "log": True}],
-}
-
 
 def run_single_arguement(run_seed):
     dset = dataset_list[int(run_seed)]
@@ -132,7 +122,7 @@ def run_single_arguement(run_seed):
             folds.append((train_index, test_index))
 
 
-    for itr, (train_index, test_index) in enumerate(folds):
+ for itr, (train_index, test_index) in enumerate(folds):
         # print('train_index: ')
         # print(train_index)
         # print('test_index: ')
@@ -218,6 +208,7 @@ def run_single_arguement(run_seed):
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
-    file = open("logs/LSSboost_logloss.csv", "a+")
-    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}")
-    file.close()
+        file = open("logs/LSSboost_logloss.csv", "a+")
+        file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}")
+        file.close()
+   
