@@ -1,0 +1,3 @@
+[submodule "LightGBMLSS"]
+	path = LightGBMLSS
+	url = git@github.com:StatMixedML/LightGBMLSS.git
