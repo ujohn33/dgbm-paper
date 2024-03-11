@@ -64,7 +64,7 @@ args = {
 
 # Define your hyperparameter space
 param_dict = {
-    "eta": ["float", {"low": 1e-5, "high": 1e-1, "log": True}],
+    "eta": ["float", {"low": 1e-3, "high": 1e-1, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 200, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
@@ -99,7 +99,7 @@ def run_single_arguement(run_seed):
     else:
         pass 
     opt_param = lgblss.hyper_opt(param_dict, dtrain, num_boost_round=args["n_est"],
-                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=30, n_trials=30,
+                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=300, n_trials=30,
                                     silence=True, seed=1, hp_seed=1)
 
     print(opt_param)
