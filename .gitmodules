@@ -1,3 +1,6 @@
 [submodule "LightGBMLSS"]
 	path = LightGBMLSS
-	url = git@github.com:StatMixedML/LightGBMLSS.git
+	url = https://github.com/ujohn33/LightGBMLSS_fork
+[submodule "ngboost"]
+	path = ngboost
+	url = https://github.com/ujohn33/ngboost_fork
