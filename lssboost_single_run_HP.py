@@ -126,7 +126,7 @@ def run_single_arguement(run_seed):
     # return 
 
 if __name__ == "__main__":
-    vsc_data = os.environ['VSC_DATA']
+    #vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
     # file = open("logs/LSSboost_logloss.csv", "a+")
     # file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}")
