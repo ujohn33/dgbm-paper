@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
@@ -86,22 +87,28 @@ def run_single_arguement(run_seed):
     start_time = time.time()  # Start time measurement
 
     lgblss = LightGBMLSS(Gaussian(stabilization="None", response_fn="exp", loss_fn="nll"))
+    # Modify start values     
+    lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
     
     # Perform hyperparameter optimization
     np.random.seed(123)
     dtrain = lgb.Dataset(X, y)
     if args["dataset"] == "Year Prediciton MSD":
         args['n_splits'] = 2
+        param_dict["subsample"] = ["categorical", [0.1]]
     elif ["dataset"] == "Protein Structure":
         args['n_splits'] = 5
     else:
         pass 
     opt_param = lgblss.hyper_opt(param_dict, dtrain, num_boost_round=args["n_est"],
-                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=300, n_trials=30,
+                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=3000, n_trials=80,
                                     silence=True, seed=1, hp_seed=1)
 
     print(opt_param)
     opt_params = opt_param.copy()
+    # Assuming opt_params is your dictionary of optimized parameters
+    with open('logs/{}_opt_params.json'.format(dset), 'w') as f:
+        json.dump(opt_params, f)
     n_rounds = opt_params["opt_rounds"]
     del opt_params["opt_rounds"]
     # # Use optimized parameters to train your model

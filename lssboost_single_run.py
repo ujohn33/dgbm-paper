@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 import time
+import json
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from ucimlrepo import fetch_ucirepo 
@@ -13,6 +14,7 @@ from lightgbmlss.distributions.Gaussian import *
 from scipy.stats import norm
 
 np.random.seed(1)
+mode = 'softplus'
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -71,21 +73,27 @@ def run_single_arguement(run_seed):
     X, y = data.iloc[:, :-1].values, data.iloc[:, -1].values
 
     print(f"== Dataset={args['dataset']} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
-
     lgbm_rmse = []
+    with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
+        default_params = json.load(pset)
+
     if args["dataset"] == "Year Prediciton MSD":
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
         default_params = {
             "eta":                     1e-1,
-            "max_depth":                3,
+            "max_depth":                7,
+            "num_leaves":               92,
+            "min_data_in_leaf":         60,
             "subsample":                0.1,
         }
     elif args["dataset"] == "Protein Structure":
-        default_params = {
-            "eta":                     1e-2,
-            "max_depth":                3,
-            "subsample":                1,
-        }
+        # default_params = {
+        #     "eta":                     0.044,
+        #     "max_depth":                7,
+        #     "num_leaves":               92,
+        #     "min_data_in_leaf":         60,
+        #     "subsample":                1,
+        # }
         kf = KFold(n_splits=5)
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
@@ -101,11 +109,13 @@ def run_single_arguement(run_seed):
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))        
     else:
-        default_params = {
-            "eta":                     1e-2,
-            "max_depth":                3,
-            "subsample":                1,
-        }
+        # default_params = {
+        #     "eta":                     0.051,
+        #     "max_depth":                3,
+        #     "num_leaves":               154,
+        #     "min_data_in_leaf":         27,
+        #     "subsample":                1,
+        # }
         kf = KFold(n_splits=args["n_splits"])
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
@@ -122,7 +132,7 @@ def run_single_arguement(run_seed):
             folds.append((train_index, test_index))
 
 
- for itr, (train_index, test_index) in enumerate(folds):
+    for itr, (train_index, test_index) in enumerate(folds):
         # print('train_index: ')
         # print(train_index)
         # print('test_index: ')
@@ -140,9 +150,11 @@ def run_single_arguement(run_seed):
 
         lgblss = LightGBMLSS(
             Gaussian(stabilization="None",
-                    response_fn = "exp",
+                    response_fn = mode,
                     loss_fn = "nll")
         )
+        # Modify start values     
+        lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
 
         dtrain = lgb.Dataset(X_train, y_train)
         deval = lgb.Dataset(X_val, y_val)
@@ -208,7 +220,7 @@ def run_single_arguement(run_seed):
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
-        file = open("logs/LSSboost_logloss.csv", "a+")
-        file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}")
-        file.close()
+    file = open("logs/LSSboost_logloss.csv", "a+")
+    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}")
+    file.close()
    

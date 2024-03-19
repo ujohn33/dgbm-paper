@@ -10,7 +10,7 @@
 
 #SBATCH --partition=skylake,skylake_mpi
 
-#SBATCH --mem-per-cpu=10G
+#SBATCH --mem-per-cpu=20G
 
 #####SBATCH --array=0-9
 #SBATCH --array=0-9
@@ -24,7 +24,6 @@
 # pip install -r requirements.txt
 
 module load Python/3.10.4-GCCcore-11.3.0
-module load sympy/1.12-gfbf-2023a
 module load SciPy-bundle/2022.05-foss-2022a
 module load JupyterHub/3.1.1-GCCcore-11.3.0
 
@@ -32,4 +31,4 @@ source $VSC_DATA/distiboost/bin/activate
 
 cd /data/brussel/105/vsc10528/LSSboost
 
-python lssboost_single_run_HP.py $SLURM_ARRAY_TASK_ID
+python lssboost_single_run.py $SLURM_ARRAY_TASK_ID
