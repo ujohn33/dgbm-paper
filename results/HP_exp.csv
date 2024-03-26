@@ -1,0 +1,10 @@
+dset,eta,max_depth,num_leaves,min_data_in_leaf,feature_pre_filter,boosting,opt_rounds
+Kin8nm,0.006824078427098834,8,20,44,False,gbdt,1616
+Energy Efficiency,0.08616870658014963,8,33,22,False,gbdt,54
+Combined Cycle Power Plant,0.031206318569081397,10,71,20,False,gbdt,202
+Wine Quality Red,0.05278334684740646,2,32,71,False,gbdt,92
+Yacht Hydrodynamics,0.08427331120169906,2,115,20,False,gbdt,64
+Protein Structure,0.062199702393938724,10,101,89,False,gbdt,75
+Boston Housing,0.0510931794275171,3,154,27,False,gbdt,66
+Naval Propulsion,0.05118244287838838,10,78,63,False,gbdt,132
+Concrete Compression Strength,0.07534095956176613,4,57,52,False,gbdt,65
