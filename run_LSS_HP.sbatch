@@ -2,7 +2,7 @@
 
 ####  SBATCH --output=/dev/null
 
-#SBATCH --job-name=NGboost
+#SBATCH --job-name=LSSboost
 
 #SBATCH --time=1-00:00:00
 
@@ -12,8 +12,8 @@
 
 #SBATCH --mem-per-cpu=20G
 
-#####SBATCH --array=0-9
-#SBATCH --array=0-9
+#####SBATCH --array=0-0
+#SBATCH --array=0-0
 #SBATCH --mail-type=ALL
 
 
@@ -31,4 +31,4 @@ source $VSC_DATA/distiboost/bin/activate
 
 cd /data/brussel/105/vsc10528/LSSboost
 
-python ng_boost_single_run.py $SLURM_ARRAY_TASK_ID
+python lssboost_HP.py 

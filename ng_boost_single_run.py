@@ -59,7 +59,7 @@ args = {
     "n_splits": 20,
     "distn": "Normal",
     "lr": 0.01,
-    "natural": "store_true",
+    "natural": False,
     "score": "LogScore",
     "base": "tree",
     "minibatch_frac": 1.0,
@@ -223,6 +223,6 @@ def run_single_arguement(run_seed):
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
-    file = open("logs/NGboost_logloss.csv", "a+")
+    file = open("logs/NGboost_logloss_nonatural.csv", "a+")
     file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}")
     file.close()
