@@ -67,7 +67,7 @@ args = {
 def run_single_arguement(run_seed):
     dset = dataset_list[int(run_seed)]
     args["dataset"] = dset
-    y_true, lss_rmse, lss_nll, times = [], [], [], [], []
+    y_true, lss_rmse, lss_nll, times = [], [], [], []
     lss_crps, lss_crps_rel, lss_crps_res, lss_crps_unc = [], [], [], [] 
 
     # Load dataset -- use last column as labela
