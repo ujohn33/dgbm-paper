@@ -106,6 +106,12 @@ def objective(trial):
             dataset_rmse.append(rmse)
             dataset_nll.append(nll)
 
+        print(f'The paramter combination is \n')
+        print({
+                'eta': eta,
+                'max_depth': max_depth,
+                'num_leaves': n_leaves, 
+                'min_data_in_leaf': min_d_leaf})
         print(f"\tAverage RMSE for {dataset_name}: {np.mean(dataset_rmse)}")
         print(f"\tAverage NLL for {dataset_name}: {np.mean(dataset_nll)}")
 
@@ -121,7 +127,7 @@ def objective(trial):
 
 # Create an Optuna study
 study = optuna.create_study(direction='minimize')
-study.optimize(objective, n_trials=50)
+study.optimize(objective, n_trials=150)
 
 # best RMSE
 print(f"\tBest value (rmse): {study.best_value:.5f}")
