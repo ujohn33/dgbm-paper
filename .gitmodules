@@ -4,3 +4,6 @@
 [submodule "ngboost"]
 	path = ngboost
 	url = https://github.com/ujohn33/ngboost_fork
+[submodule "properscoring"]
+	path = properscoring
+	url = git@github.com:tozech/properscoring.git
