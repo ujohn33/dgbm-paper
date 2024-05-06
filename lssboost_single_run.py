@@ -192,10 +192,10 @@ def run_single_arguement(run_seed):
         lss_nll += [-norm(forecast['loc'], forecast['scale']).logpdf(y_test.flatten()).mean()]
         samples = [[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]]
         crps_comps = _mean_crps_hersbach(y_test.flatten(), samples)
-        lss_crps += crps_comps[0]
-        lss_crps_rel += crps_comps[1]
-        lss_crps_res += crps_comps[2]
-        lss_crps_unc += crps_comps[3]
+        lss_crps += [crps_comps[0][0]]
+        lss_crps_rel += [crps_comps[1][0]]
+        lss_crps_res += [crps_comps[2][0]]
+        lss_crps_unc += [crps_comps[3]]
         times += [elapsed_time]
 
         print(
