@@ -199,7 +199,7 @@ def run_single_arguement(run_seed):
         times += [elapsed_time]
 
         print(
-                "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f"
+                "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_REL=%.4f CRPS_RES=%.4f CRPS_UNC=%.4f TIME=%.4f"
                 % (
                     itr + 1,
                     args['n_splits'],
@@ -207,6 +207,11 @@ def run_single_arguement(run_seed):
                     np.sqrt(val_rmse),
                     np.sqrt(mean_squared_error(forecast['loc'].values, y_test)),
                     lss_nll[-1],
+                    lss_crps[-1],
+                    lss_crps_rel[-1],
+                    lss_crps_res[-1],
+                    lss_crps_unc[-1],
+                    elapsed_time,
                 )
             )
     print(dset)
