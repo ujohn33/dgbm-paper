@@ -15,7 +15,7 @@ from scipy.stats import norm
 from properscoring._mean_crps import _mean_crps_hersbach
 
 np.random.seed(1)
-mode = 'softplus'
+mode = 'exp'
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -236,12 +236,12 @@ def run_single_arguement(run_seed):
             )
         )
     # return a dictonary of val
-    return  dset, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(times), np.std(times), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_rel), np.std(lss_crps_rel), np.mean(lss_crps_res), np.std(lss_crps_res), np.mean(lss_crps_unc), np.std(lss_crps_unc), np.mean(times)
+    return  dset, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_rel), np.std(lss_crps_rel), np.mean(lss_crps_res), np.std(lss_crps_res), np.mean(lss_crps_unc), np.std(lss_crps_unc), np.mean(times)
 
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
-    file = open("logs/LSSboost_logloss.csv", "a+")
+    file = open("logs/LSSboost_crps.csv", "a+")
     file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}, {results[12]}, {results[13]}")
     file.close()
    
