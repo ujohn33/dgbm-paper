@@ -13,6 +13,7 @@ from lightgbmlss.model import *
 from lightgbmlss.distributions.Gaussian import *
 from scipy.stats import norm
 from properscoring._mean_crps import _mean_crps_hersbach
+from utils.metrics import crps
 
 np.random.seed(1)
 mode = 'exp'
@@ -68,7 +69,7 @@ def run_single_arguement(run_seed):
     dset = dataset_list[int(run_seed)]
     args["dataset"] = dset
     y_true, lss_rmse, lss_nll, times = [], [], [], []
-    lss_crps, lss_crps_rel, lss_crps_res, lss_crps_unc = [], [], [], [] 
+    lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
 
     # Load dataset -- use last column as labela
     data = dataset_name_to_loader[args['dataset']]()
@@ -190,16 +191,16 @@ def run_single_arguement(run_seed):
         lss_rmse += [np.sqrt(mean_squared_error(forecast['loc'].values, y_test))]
         val_rmse = [np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))]
         lss_nll += [-norm(forecast['loc'], forecast['scale']).logpdf(y_test.flatten()).mean()]
-        samples = [[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]]
-        crps_comps = _mean_crps_hersbach(y_test.flatten(), samples)
+        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]])
+        crps_comps = crps(y_test.flatten(), samples)
+        #crps_comps = _mean_crps_hersbach(y_test.flatten(), samples)
         lss_crps += [crps_comps[0][0]]
-        lss_crps_rel += [crps_comps[1][0]]
-        lss_crps_res += [crps_comps[2][0]]
-        lss_crps_unc += [crps_comps[3]]
+        lss_crps_cal += [crps_comps[1][0]]
+        lss_crps_sha += [crps_comps[2][0]]
         times += [elapsed_time]
 
         print(
-                "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_REL=%.4f CRPS_RES=%.4f CRPS_UNC=%.4f TIME=%.4f"
+                "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_CAL=%.4f CRPS_SHA=%.4f TIME=%.4f"
                 % (
                     itr + 1,
                     args['n_splits'],
@@ -208,15 +209,14 @@ def run_single_arguement(run_seed):
                     np.sqrt(mean_squared_error(forecast['loc'].values, y_test)),
                     lss_nll[-1],
                     lss_crps[-1],
-                    lss_crps_rel[-1],
-                    lss_crps_res[-1],
-                    lss_crps_unc[-1],
+                    lss_crps_cal[-1],
+                    lss_crps_sha[-1],
                     elapsed_time,
                 )
             )
     print(dset)
     print(
-            "== GBM=%.4f +/- %.4f, RMSE GBMLSS=%.4f ± %.4f, NLL GBMLSS=%.4f ± %.4f, CRPS = %.4f  +/- %.4f, CRPS_REL =  %.4f +/- %.4f, CRPS_RES =  %.4f +/- %.4f,  CRPS_UNC =  %.4f +/- %.4f,  TIME = %.4f"
+            "== GBM=%.4f +/- %.4f, RMSE GBMLSS=%.4f ± %.4f, NLL GBMLSS=%.4f ± %.4f, CRPS = %.4f  +/- %.4f, CRPS_cal =  %.4f +/- %.4f, CRPS_sha =  %.4f +/- %.4f,  TIME = %.4f"
             % (
                 0.0,
                 0.0,
@@ -226,22 +226,20 @@ def run_single_arguement(run_seed):
                 np.std(lss_nll),
                 np.mean(lss_crps),
                 np.std(lss_crps),
-                np.mean(lss_crps_rel),
-                np.std(lss_crps_rel),
-                np.mean(lss_crps_res),
-                np.std(lss_crps_res),
-                np.mean(lss_crps_unc),
-                np.std(lss_crps_unc),
+                np.mean(lss_crps_cal),
+                np.std(lss_crps_cal),
+                np.mean(lss_crps_sha),
+                np.std(lss_crps_sha),
                 np.mean(times)  # Include elapsed time in the output
             )
         )
     # return a dictonary of val
-    return  dset, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_rel), np.std(lss_crps_rel), np.mean(lss_crps_res), np.std(lss_crps_res), np.mean(lss_crps_unc), np.std(lss_crps_unc), np.mean(times)
+    return  dset, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times)
 
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
-    file = open("logs/LSSboost_crps.csv", "a+")
-    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}, {results[12]}, {results[13]}")
+    file = open("logs/LSSboost_crps_calibration_sharpness.csv", "a+")
+    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]})
     file.close()
    

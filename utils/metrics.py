@@ -34,4 +34,4 @@ def crps(y_true, y_pred):
     # Compute the CRPS score
     crps_score = crps_term1 - crps_term2
 
-    return crps_term1, crps_term2, crps_score
+    return crps_score, crps_term1, crps_term2

@@ -12,6 +12,7 @@ from ngboost.scores import LogScore
 from ngboost import NGBRegressor
 from ngboost.learners import default_linear_learner, default_tree_learner
 from properscoring._mean_crps import _mean_crps_hersbach
+from utils.metrics import crps
 
 
 np.random.seed(1)
@@ -74,7 +75,7 @@ def run_single_arguement(run_seed):
     start_time = time.time()  # Start time measurement
     args["dataset"] = dset
     y_true, ngb_rmse, ngb_nll, times = [], [], [], []
-    ngb_crps, ngb_crps_rel, ngb_crps_res, ngb_crps_unc = [], [], [], [] 
+    ngb_crps, ngb_crps_cal, ngb_crps_sha = [], [], []
 
     # Load dataset -- use last column as label
     data = dataset_name_to_loader[args['dataset']]()
@@ -192,16 +193,15 @@ def run_single_arguement(run_seed):
 
         ngb_rmse += [np.sqrt(mean_squared_error(forecast.mean(), y_test))]
         ngb_nll += [-forecast.logpdf(y_test.flatten()).mean()]
-        samples = [[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast.loc, forecast.scale)]]
-        crps_comps = _mean_crps_hersbach(y_test.flatten(), samples)
+        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast.loc, forecast.scale)]])
+        crps_comps = crps(y_test.flatten(), samples)
         ngb_crps += [crps_comps[0][0]]
-        ngb_crps_rel += [crps_comps[1][0]]
-        ngb_crps_res += [crps_comps[2][0]]
-        ngb_crps_unc += [crps_comps[3]]
+        ngb_crps_cal += [crps_comps[1][0]]
+        ngb_crps_sha += [crps_comps[2][0]]
         times += [elapsed_time]
 
         print(
-                "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_REL=%.4f CRPS_RES=%.4f CRPS_UNC=%.4f TIME=%.4f"
+                "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_CAL=%.4f CRPS_SHA=%.4f TIME=%.4f"
                 % (
                     itr + 1,
                     args['n_splits'],
@@ -210,9 +210,8 @@ def run_single_arguement(run_seed):
                     np.sqrt(mean_squared_error(forecast.mean(), y_test)),
                     ngb_nll[-1],
                     ngb_crps[-1],
-                    ngb_crps_rel[-1],
-                    ngb_crps_res[-1],
-                    ngb_crps_unc[-1],
+                    ngb_crps_cal[-1],
+                    ngb_crps_sha[-1],
                     elapsed_time,
                 )
             )
@@ -228,20 +227,18 @@ def run_single_arguement(run_seed):
                 np.std(ngb_nll),
                 np.mean(ngb_crps),
                 np.std(ngb_crps),
-                np.mean(ngb_crps_rel),
-                np.std(ngb_crps_rel),
-                np.mean(ngb_crps_res),
-                np.std(ngb_crps_res),
-                np.mean(ngb_crps_unc),
-                np.std(ngb_crps_unc),
+                np.mean(ngb_crps_cal),
+                np.std(ngb_crps_cal),
+                np.mean(ngb_crps_sha),
+                np.std(ngb_crps_sha),
                 np.mean(times)  # Include elapsed time in the output
             )
         )
-    return dset, np.mean(ngb_rmse), np.std(ngb_rmse), np.mean(ngb_nll), np.std(ngb_nll), np.mean(ngb_crps), np.std(ngb_crps), np.mean(ngb_crps_rel), np.std(ngb_crps_rel), np.mean(ngb_crps_res), np.std(ngb_crps_res), np.mean(ngb_crps_unc), np.std(ngb_crps_unc), np.mean(times)
+    return dset, np.mean(ngb_rmse), np.std(ngb_rmse), np.mean(ngb_nll), np.std(ngb_nll), np.mean(ngb_crps), np.std(ngb_crps), np.mean(ngb_crps_cal), np.std(ngb_crps_cal), np.mean(ngb_crps_sha), np.std(ngb_crps_sha), np.mean(times)
 
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
-    file = open("logs/NGboost_natural_crps.csv", "a+")
-    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}, {results[12]}, {results[13]}")
+    file = open("logs/NGboost_natural_crps_calibration_sharpness.csv", "a+")
+    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
     file.close()
