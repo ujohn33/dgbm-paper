@@ -192,6 +192,7 @@ def run_single_arguement(run_seed):
         val_rmse = [np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))]
         lss_nll += [-norm(forecast['loc'], forecast['scale']).logpdf(y_test.flatten()).mean()]
         samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]])
+        samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test.flatten(), samples)
         #crps_comps = _mean_crps_hersbach(y_test.flatten(), samples)
         lss_crps += [crps_comps[0][0]]
