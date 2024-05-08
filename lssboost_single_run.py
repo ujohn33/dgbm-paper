@@ -7,8 +7,6 @@ import time
 import json
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
-from ucimlrepo import fetch_ucirepo 
-from scipy.io import arff
 from lightgbmlss.model import *
 from lightgbmlss.distributions.Gaussian import *
 from scipy.stats import norm
