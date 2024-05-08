@@ -194,10 +194,11 @@ def run_single_arguement(run_seed):
         ngb_rmse += [np.sqrt(mean_squared_error(forecast.mean(), y_test))]
         ngb_nll += [-forecast.logpdf(y_test.flatten()).mean()]
         samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast.loc, forecast.scale)]])
+        samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test.flatten(), samples)
-        ngb_crps += [crps_comps[0][0]]
-        ngb_crps_cal += [crps_comps[1][0]]
-        ngb_crps_sha += [crps_comps[2][0]]
+        ngb_crps += [crps_comps[0]]
+        ngb_crps_cal += [crps_comps[1]]
+        ngb_crps_sha += [crps_comps[2]]
         times += [elapsed_time]
 
         print(

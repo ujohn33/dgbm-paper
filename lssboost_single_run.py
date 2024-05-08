@@ -195,9 +195,9 @@ def run_single_arguement(run_seed):
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test.flatten(), samples)
         #crps_comps = _mean_crps_hersbach(y_test.flatten(), samples)
-        lss_crps += [crps_comps[0][0]]
-        lss_crps_cal += [crps_comps[1][0]]
-        lss_crps_sha += [crps_comps[2][0]]
+        lss_crps += [crps_comps[0]]
+        lss_crps_cal += [crps_comps[1]]
+        lss_crps_sha += [crps_comps[2]]
         times += [elapsed_time]
 
         print(
@@ -241,6 +241,6 @@ if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
     file = open("logs/LSSboost_crps_calibration_sharpness.csv", "a+")
-    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]})
+    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
     file.close()
    
