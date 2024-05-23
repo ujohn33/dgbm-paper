@@ -86,7 +86,7 @@ def run_single_arguement(run_seed):
 
     start_time = time.time()  # Start time measurement
 
-    lgblss = LightGBMLSS(Gaussian(stabilization="None", response_fn="exp", loss_fn="nll"))
+    lgblss = LightGBMLSS(Gaussian(stabilization="None", response_fn="exp", loss_fn="nll", natural_gradient=True))
     # Modify start values     
     lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
     
@@ -107,7 +107,7 @@ def run_single_arguement(run_seed):
     print(opt_param)
     opt_params = opt_param.copy()
     # Assuming opt_params is your dictionary of optimized parameters
-    with open('logs/{}_opt_params.json'.format(dset), 'w') as f:
+    with open('logs/{}_opt_params_natural.json'.format(dset), 'w') as f:
         json.dump(opt_params, f)
     n_rounds = opt_params["opt_rounds"]
     del opt_params["opt_rounds"]
