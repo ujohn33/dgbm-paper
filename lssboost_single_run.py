@@ -75,7 +75,7 @@ def run_single_arguement(run_seed):
 
     print(f"== Dataset={args['dataset']} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
     lgbm_rmse = []
-    with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
+    with open(f'logs/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
         default_params = json.load(pset)
 
     if args["dataset"] == "Year Prediciton MSD":

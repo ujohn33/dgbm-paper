@@ -107,7 +107,7 @@ def run_single_arguement(run_seed):
     print(opt_param)
     opt_params = opt_param.copy()
     # Assuming opt_params is your dictionary of optimized parameters
-    with open('logs/{}_opt_params_natural.json'.format(dset), 'w') as f:
+    with open('logs/natural/{}_opt_params.json'.format(dset), 'w') as f:
         json.dump(opt_params, f)
     n_rounds = opt_params["opt_rounds"]
     del opt_params["opt_rounds"]
