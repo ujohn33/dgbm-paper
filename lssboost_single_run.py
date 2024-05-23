@@ -152,7 +152,8 @@ def run_single_arguement(run_seed):
         lgblss = LightGBMLSS(
             Gaussian(stabilization="None",
                     response_fn = mode,
-                    loss_fn = "nll")
+                    loss_fn = "nll",
+                    natural_gradient = True)
         )
         # Modify start values     
         lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
@@ -238,7 +239,7 @@ def run_single_arguement(run_seed):
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
-    file = open("logs/LSSboost_crps_calibration_sharpness.csv", "a+")
+    file = open("logs/LSSboost_natural.csv", "a+")
     file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
     file.close()
    
