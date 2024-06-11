@@ -106,7 +106,17 @@ def run_single_arguement(run_seed):
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))        
     else:
-        args["lr"] = 0.01
+        if args["dataset"] == "Concrete Compression Strength":
+            args["lr"] = 0.002
+            args["n_est"] = 5000
+        elif args["dataset"] == "Energy Efficiency":
+            args["lr"] = 0.002
+            args["n_est"] = 5000
+        elif args["dataset"] == "Boston Housing":
+            args["lr"] = 0.0007
+            args["n_est"] = 5000
+        else:
+            args["lr"] = 0.01
         args["minibatch_frac"] = 1.0 
         kf = KFold(n_splits=args["n_splits"])
         folds = kf.split(X)
