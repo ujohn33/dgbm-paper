@@ -75,8 +75,6 @@ def run_single_arguement(run_seed):
 
     print(f"== Dataset={args['dataset']} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
     lgbm_rmse = []
-    with open(f'logs/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
-        default_params = json.load(pset)
 
     if args["dataset"] == "Year Prediciton MSD":
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
@@ -88,13 +86,15 @@ def run_single_arguement(run_seed):
             "subsample":                0.1,
         }
     elif args["dataset"] == "Protein Structure":
-        default_params = {
-            "eta":                     0.03,
-            "max_depth":                7,
-            "num_leaves":               92,
-            "min_data_in_leaf":         60,
-            "subsample":                1,
-        }
+        # default_params = {
+        #     "eta":                     0.03,
+        #     "max_depth":                7,
+        #     "num_leaves":               92,
+        #     "min_data_in_leaf":         60,
+        #     "subsample":                1,
+        # }
+        with open(f'logs/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
+            default_params = json.load(pset)
         kf = KFold(n_splits=5)
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
@@ -110,13 +110,15 @@ def run_single_arguement(run_seed):
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))        
     else:
-        default_params = {
-            "eta":                     0.03,
-            "max_depth":                9,
-            "num_leaves":               110,
-            "min_data_in_leaf":         22,
-            "subsample":                1,
-        }
+        # default_params = {
+        #     "eta":                     0.03,
+        #     "max_depth":                9,
+        #     "num_leaves":               110,
+        #     "min_data_in_leaf":         22,
+        #     "subsample":                1,
+        # }
+        with open(f'logs/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
+            default_params = json.load(pset)
         kf = KFold(n_splits=args["n_splits"])
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
