@@ -99,6 +99,12 @@ def run_single_arguement(run_seed):
     elif ["dataset"] == "Protein Structure":
         args['n_splits'] = 5
     else:
+        if args["dataset"] == "Concrete Compression Strength":
+            args["n_est"] = 5000
+        elif args["dataset"] == "Energy Efficiency":
+            args["n_est"] = 5000
+        elif args["dataset"] == "Boston Housing":
+            args["n_est"] = 5000
         pass 
     opt_param = lgblss.hyper_opt(param_dict, dtrain, num_boost_round=args["n_est"],
                                     nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=3000, n_trials=80,
