@@ -63,7 +63,7 @@ args = {
 
 # Define your hyperparameter space
 param_dict = {
-    "eta": ["float", {"low": 1e-3, "high": 1e-1, "log": True}],
+    "eta": ["float", {"low": 1e-5, "high": 1e-1, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 200, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
@@ -113,7 +113,7 @@ def run_single_arguement(run_seed):
     print(opt_param)
     opt_params = opt_param.copy()
     # Assuming opt_params is your dictionary of optimized parameters
-    with open('logs/natural/{}_opt_params.json'.format(dset), 'w') as f:
+    with open('logs/natural/exp/{}_opt_params.json'.format(dset), 'w') as f:
         json.dump(opt_params, f)
     n_rounds = opt_params["opt_rounds"]
     del opt_params["opt_rounds"]

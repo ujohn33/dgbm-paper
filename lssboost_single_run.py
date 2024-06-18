@@ -15,6 +15,7 @@ from utils.metrics import crps
 
 np.random.seed(1)
 mode = 'exp'
+natural_flag = False
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -93,8 +94,12 @@ def run_single_arguement(run_seed):
         #     "min_data_in_leaf":         60,
         #     "subsample":                1,
         # }
-        with open(f'logs/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
-            default_params = json.load(pset)
+        if natural_flag:
+            with open(f'logs/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
+                default_params = json.load(pset)
+        else:
+            with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
+                default_params = json.load(pset)
         kf = KFold(n_splits=5)
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
@@ -128,8 +133,12 @@ def run_single_arguement(run_seed):
         else:
             #default_params['eta'] = 0.03
             pass
-        with open(f'logs/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
-            default_params = json.load(pset)
+        if natural_flag:
+            with open(f'logs/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
+                default_params = json.load(pset)
+        else:
+            with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
+                default_params = json.load(pset)
         kf = KFold(n_splits=args["n_splits"])
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
@@ -166,7 +175,7 @@ def run_single_arguement(run_seed):
             Gaussian(stabilization="None",
                     response_fn = mode,
                     loss_fn = "nll",
-                    natural_gradient = True)
+                    natural_gradient = natural_flag)
         )
         # Modify start values     
         lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
@@ -252,7 +261,10 @@ def run_single_arguement(run_seed):
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
-    file = open("logs/LSSboost_natural.csv", "a+")
+    if natural_flag:
+        file = open("logs/LSSboost_natural.csv", "a+")
+    else:
+        file = open("logs/LSSboost_no_natural.csv", "a+")
     file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
     file.close()
    
