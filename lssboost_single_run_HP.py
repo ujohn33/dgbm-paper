@@ -63,7 +63,7 @@ args = {
 
 # Define your hyperparameter space
 param_dict = {
-    "eta": ["float", {"low": 0.01, "high": 0.01, "log": False}],
+    "eta": ["float", {"low": 0.025, "high": 0.025, "log": False}],
     "max_depth": ["int", {"low": 2, "high": 3, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 200, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example

@@ -77,7 +77,7 @@ def run_single_arguement(run_seed):
     print(f"== Dataset={args['dataset']} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
     lgbm_rmse = []
     if natural_flag:
-        with open(f'logs/natural/{mode}_eta/{args["dataset"]}_opt_params.json') as pset:
+        with open(f'logs/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
             default_params = json.load(pset)
     else:
         with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
