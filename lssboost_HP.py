@@ -55,10 +55,10 @@ def objective(trial):
     #     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     #     "feature_pre_filter": ["categorical", [False]]
     # }
-    eta = trial.suggest_float('eta', 1e-3, 1e-1, log=True)
-    max_depth = trial.suggest_int('max_depth', 3, 10)
-    n_leaves = trial.suggest_int('num_leaves', 20, 200)
-    min_d_leaf = trial.suggest_int('min_data_in_leaf', 20, 100)
+    eta = trial.suggest_float('eta', 1e-5, 1e-1, log=True)
+    max_depth = trial.suggest_int('max_depth', 2, 10, log=False)
+    n_leaves = trial.suggest_int('num_leaves', 20, 200, log=False)
+    min_d_leaf = trial.suggest_int('min_data_in_leaf', 20, 100, log=False)
 
     # Initialize metrics
     all_rmse = []
@@ -80,7 +80,7 @@ def objective(trial):
 
             # Set up the model
             lgblss = LightGBMLSS(
-                Gaussian(stabilization="None", response_fn="exp", loss_fn="nll")
+                Gaussian(stabilization="None", response_fn="exp", loss_fn="nll", natural_gradient = True)
             )
             # Modify start values     
             lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])

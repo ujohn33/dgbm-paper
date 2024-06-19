@@ -15,7 +15,7 @@ from utils.metrics import crps
 
 np.random.seed(1)
 mode = 'exp'
-natural_flag = False
+natural_flag = True
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -76,16 +76,14 @@ def run_single_arguement(run_seed):
 
     print(f"== Dataset={args['dataset']} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
     lgbm_rmse = []
-
+    if natural_flag:
+        with open(f'logs/natural/{mode}_eta/{args["dataset"]}_opt_params.json') as pset:
+            default_params = json.load(pset)
+    else:
+        with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
+            default_params = json.load(pset)
     if args["dataset"] == "Year Prediciton MSD":
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
-        default_params = {
-            "eta":                     0.1,
-            "max_depth":                7,
-            "num_leaves":               92,
-            "min_data_in_leaf":         60,
-            "subsample":                0.1,
-        }
     elif args["dataset"] == "Protein Structure":
         # default_params = {
         #     "eta":                     0.01,
@@ -94,12 +92,6 @@ def run_single_arguement(run_seed):
         #     "min_data_in_leaf":         60,
         #     "subsample":                1,
         # }
-        if natural_flag:
-            with open(f'logs/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
-                default_params = json.load(pset)
-        else:
-            with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
-                default_params = json.load(pset)
         kf = KFold(n_splits=5)
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
@@ -133,12 +125,6 @@ def run_single_arguement(run_seed):
         else:
             #default_params['eta'] = 0.03
             pass
-        if natural_flag:
-            with open(f'logs/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
-                default_params = json.load(pset)
-        else:
-            with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
-                default_params = json.load(pset)
         kf = KFold(n_splits=args["n_splits"])
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py

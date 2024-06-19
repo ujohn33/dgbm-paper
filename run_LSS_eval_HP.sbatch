@@ -10,7 +10,7 @@
 
 #SBATCH --partition=skylake,skylake_mpi
 
-#SBATCH --mem-per-cpu=20G
+#SBATCH --mem-per-cpu=40G
 
 #####SBATCH --array=0-9
 #SBATCH --array=0-9
