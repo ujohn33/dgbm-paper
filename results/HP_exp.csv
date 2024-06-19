@@ -1,10 +1,11 @@
-dset,eta,max_depth,num_leaves,min_data_in_leaf,feature_pre_filter,boosting,opt_rounds
-Kin8nm,0.006824078427098834,8,20,44,False,gbdt,1616
-Energy Efficiency,0.08616870658014963,8,33,22,False,gbdt,54
-Combined Cycle Power Plant,0.031206318569081397,10,71,20,False,gbdt,202
-Wine Quality Red,0.05278334684740646,2,32,71,False,gbdt,92
-Yacht Hydrodynamics,0.08427331120169906,2,115,20,False,gbdt,64
-Protein Structure,0.062199702393938724,10,101,89,False,gbdt,75
-Boston Housing,0.0510931794275171,3,154,27,False,gbdt,66
-Naval Propulsion,0.05118244287838838,10,78,63,False,gbdt,132
-Concrete Compression Strength,0.07534095956176613,4,57,52,False,gbdt,65
+dataset,eta,max_depth,num_leaves,min_data_in_leaf,feature_pre_filter,boosting,opt_rounds,subsample
+Kin8nm,0.09399502815670166,3,45,79,False,gbdt,1996,
+Energy Efficiency,0.05611296310153655,2,146,28,False,gbdt,405,
+Combined Cycle Power Plant,0.036527285407599544,4,141,78,False,gbdt,256,
+Wine Quality Red,0.03885274670790202,3,48,86,False,gbdt,92,
+Yacht Hydrodynamics,0.014681494948617018,4,50,20,False,gbdt,287,
+Protein Structure,0.024005472219124198,8,47,98,False,gbdt,338,
+Boston Housing,0.010453799926540181,2,157,86,False,gbdt,555,
+Year Prediciton MSD,0.010590541826060453,2,150,92,False,gbdt,2000,0.1
+Naval Propulsion,0.0997216743612566,9,182,91,False,gbdt,2000,
+Concrete Compression Strength,0.061437120275587155,2,137,65,False,gbdt,114,
