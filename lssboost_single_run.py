@@ -76,22 +76,21 @@ def run_single_arguement(run_seed):
 
     print(f"== Dataset={args['dataset']} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
     lgbm_rmse = []
-    if natural_flag:
-        with open(f'logs/natural/{mode}_eta/{args["dataset"]}_opt_params.json') as pset:
-            default_params = json.load(pset)
-    else:
-        with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
-            default_params = json.load(pset)
+    # if natural_flag:
+    #     with open(f'logs/natural/{mode}_eta/{args["dataset"]}_opt_params.json') as pset:
+    #         default_params = json.load(pset)
+    # else:
+    #     with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
+    #         default_params = json.load(pset)
+    default_params = {
+        "eta":                      0.25,
+        "max_depth":                6,
+        "num_leaves":               83,
+        "min_data_in_leaf":         23,
+    }
     if args["dataset"] == "Year Prediciton MSD":
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
     elif args["dataset"] == "Protein Structure":
-        # default_params = {
-        #     "eta":                     0.01,
-        #     "max_depth":                7,
-        #     "num_leaves":               92,
-        #     "min_data_in_leaf":         60,
-        #     "subsample":                1,
-        # }
         kf = KFold(n_splits=5)
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
