@@ -2,7 +2,7 @@
 
 ####  SBATCH --output=/dev/null
 
-#SBATCH --job-name=LSSboost
+#SBATCH --job-name=XGLSSboost
 
 #SBATCH --time=1-00:00:00
 
@@ -10,7 +10,7 @@
 
 #SBATCH --partition=skylake,skylake_mpi
 
-#SBATCH --mem-per-cpu=40G
+#SBATCH --mem-per-cpu=20G
 
 #####SBATCH --array=0-9
 #SBATCH --array=0-9
@@ -33,4 +33,4 @@ source $VSC_DATA/distiboost/bin/activate
 
 cd /data/brussel/105/vsc10528/LSSboost
 
-python lssboost_single_run_HP.py $SLURM_ARRAY_TASK_ID
+python xglssboost_single_run_HP.py $SLURM_ARRAY_TASK_ID

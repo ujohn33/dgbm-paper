@@ -9,8 +9,8 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from ucimlrepo import fetch_ucirepo 
 from scipy.io import arff
-from lightgbmlss.model import *
-from lightgbmlss.distributions.Gaussian import *
+from xgboostlss.model import *
+from xgboostlss.distributions.Gaussian import *
 from scipy.stats import norm
 
 np.random.seed(123)
@@ -63,11 +63,11 @@ args = {
 
 # Define your hyperparameter space
 param_dict = {
-    "eta": ["float", {"low": 0.025, "high": 0.025, "log": False}],
-    "max_depth": ["int", {"low": 2, "high": 3, "log": False}],
-    "num_leaves": ["int", {"low": 20, "high": 200, "log": False}],  # Constant for this example
-    "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
-    "feature_pre_filter": ["categorical", [False]]
+    "eta": ["float", {"low": 0.0001, "high": 0.4, "log": True}],
+    "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
+    "min_child_weight": ["int", {"low": 1, "high": 10, "log": False}],
+    "subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}],
+    "colsample_bytree": ["float", {"low": 0.5, "high": 1.0, "log": False}],
 }
 
 
@@ -86,13 +86,13 @@ def run_single_arguement(run_seed):
 
     start_time = time.time()  # Start time measurement
 
-    lgblss = LightGBMLSS(Gaussian(stabilization="None", response_fn="exp", loss_fn="nll", natural_gradient=True))
+    xgblss = XGBoostLSS(Gaussian(stabilization="None", response_fn="exp", loss_fn="nll", natural_gradient=True))
     # Modify start values     
-    lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
+    xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
     
     # Perform hyperparameter optimization
     np.random.seed(123)
-    dtrain = lgb.Dataset(X, y)
+    dtrain = xgb.DMatrix(X, label=y)
     if args["dataset"] == "Year Prediciton MSD":
         args['n_splits'] = 2
         param_dict["subsample"] = ["categorical", [0.1]]
@@ -106,24 +106,24 @@ def run_single_arguement(run_seed):
         elif args["dataset"] == "Boston Housing":
             args["n_est"] = 5000
         pass 
-    opt_param = lgblss.hyper_opt(param_dict, dtrain, num_boost_round=args["n_est"],
+    opt_param = xgblss.hyper_opt(param_dict, dtrain, num_boost_round=args["n_est"],
                                     nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=3000, n_trials=80,
                                     silence=True, seed=1, hp_seed=1)
 
     print(opt_param)
     opt_params = opt_param.copy()
     # Assuming opt_params is your dictionary of optimized parameters
-    with open('logs/natural/exp/{}_opt_params.json'.format(dset), 'w') as f:
+    with open('logs/xgboost/{}_opt_params.json'.format(dset), 'w') as f:
         json.dump(opt_params, f)
     n_rounds = opt_params["opt_rounds"]
     del opt_params["opt_rounds"]
     # # Use optimized parameters to train your model
-    # # Note: You might need to adjust the following line to use the `opt_param` properly, depending on how `lgblss.hyper_opt` returns the optimized parameters.
-    # final_gbm = lgblss.train(opt_param, dtrain, num_boost_round=n_rounds)
+    # # Note: You might need to adjust the following line to use the `opt_param` properly, depending on how `xgblss.hyper_opt` returns the optimized parameters.
+    # final_gbm = xgblss.train(opt_param, dtrain, num_boost_round=n_rounds)
     
     # # the final prediction for this fold
-    # forecast = lgblss.predict(X_test)
-    # #forecast_val = lgblss.predict(X_val)
+    # forecast = xgblss.predict(X_test)
+    # #forecast_val = xgblss.predict(X_val)
 
     # # After processing all folds for a dataset:
     # end_time = time.time()  # End time measurement

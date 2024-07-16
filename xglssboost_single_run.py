@@ -7,8 +7,8 @@ import time
 import json
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
-from lightgbmlss.model import *
-from lightgbmlss.distributions.Gaussian import *
+from xgboostlss.model import *
+from xgboostlss.distributions.Gaussian import *
 from scipy.stats import norm
 from properscoring._mean_crps import _mean_crps_hersbach
 from utils.metrics import crps
@@ -83,10 +83,8 @@ def run_single_arguement(run_seed):
         with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
             default_params = json.load(pset)
     # default_params = {
-    #     "eta":                      0.25,
-    #     "max_depth":                6,
-    #     "num_leaves":               83,
-    #     "min_data_in_leaf":         23,
+    #     "eta":                      0.3,
+    #     "max_depth":                6
     # }
     if args["dataset"] == "Year Prediciton MSD":
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
@@ -156,39 +154,42 @@ def run_single_arguement(run_seed):
         y_true += list(y_test.flatten())
 
 
-        lgblss = LightGBMLSS(
+        xgblss = XGBoostLSS(
             Gaussian(stabilization="None",
                     response_fn = mode,
                     loss_fn = "nll",
                     natural_gradient = natural_flag)
         )
         # Modify start values     
-        lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
+        xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
-        dtrain = lgb.Dataset(X_train, y_train)
-        deval = lgb.Dataset(X_val, y_val)
-        dtest = lgb.Dataset(X_test, y_test)
+        dtrain = xgb.DMatrix(X_train, label=y_train)
+        deval = xgb.DMatrix(X_val, label=y_val)
+        dtest = xgb.DMatrix(X_test, label=y_test)
         # Training with early stopping
         evals_result = {}
         default_params['early_stopping'] = 20
+        eval_set = [(dtrain,"train"), (deval,"evaluation")]
         # Train Model with optimized hyperparameters
-        gbm = lgblss.train(default_params, dtrain, 
+        gbm = xgblss.train(default_params, dtrain, 
                             num_boost_round = args["n_est"],
-                            valid_sets = [dtrain, deval]
+                            evals = eval_set,
+                            early_stopping_rounds = 20
                             )
 
         # Best iteration
-        print(f"Best iteration: {lgblss.booster.best_iteration}")
+        print(f"Best iteration: {xgblss.booster.best_iteration}")
 
-        full_train_data = lgb.Dataset(X_trainall, y_trainall)
+        full_train_data = xgb.DMatrix(X_trainall, label=y_trainall)
         default_params['early_stopping'] = None
+        best_iter = xgblss.booster.best_iteration
 
-        final_gbm = lgblss.train(default_params, full_train_data, 
-                            num_boost_round = lgblss.booster.best_iteration,
+        final_gbm = xgblss.train(default_params, full_train_data, 
+                            num_boost_round = best_iter,
                         )
         # the final prediction for this fold
-        forecast = lgblss.predict(X_test)
-        forecast_val = lgblss.predict(X_val)
+        forecast = xgblss.predict(dtest)
+        forecast_val = xgblss.predict(deval)
 
         # After processing all folds for a dataset:
         end_time = time.time()  # End time measurement
@@ -211,7 +212,7 @@ def run_single_arguement(run_seed):
                 % (
                     itr + 1,
                     args['n_splits'],
-                    lgblss.booster.best_iteration,
+                    best_iter,
                     np.sqrt(val_rmse),
                     np.sqrt(mean_squared_error(forecast['loc'].values, y_test)),
                     lss_nll[-1],
@@ -247,9 +248,9 @@ if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
     if natural_flag:
-        file = open("logs/LSSboost_natural.csv", "a+")
+        file = open("logs/XGLSSboost_natural.csv", "a+")
     else:
-        file = open("logs/LSSboost_no_natural.csv", "a+")
+        file = open("logs/XGLSSboost_no_natural.csv", "a+")
     file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
     file.close()
    
