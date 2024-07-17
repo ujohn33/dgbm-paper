@@ -14,7 +14,7 @@ from properscoring._mean_crps import _mean_crps_hersbach
 from utils.metrics import crps
 
 np.random.seed(1)
-mode = 'exp'
+mode = 'softplus'
 natural_flag = True
 
 dataset_name_to_loader = {
@@ -77,10 +77,10 @@ def run_single_arguement(run_seed):
     print(f"== Dataset={args['dataset']} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
     lgbm_rmse = []
     if natural_flag:
-        with open(f'logs/natural/{mode}_eta/{args["dataset"]}_opt_params.json') as pset:
+        with open(f'logs/xgboost/natural/{mode}/{args["dataset"]}_opt_params.json') as pset:
             default_params = json.load(pset)
     else:
-        with open(f'logs/{mode}/{args["dataset"]}_opt_params.json') as pset:
+        with open(f'logs/xgboost/normal/{mode}/{args["dataset"]}_opt_params.json') as pset:
             default_params = json.load(pset)
     # default_params = {
     #     "eta":                      0.3,
@@ -186,6 +186,7 @@ def run_single_arguement(run_seed):
 
         final_gbm = xgblss.train(default_params, full_train_data, 
                             num_boost_round = best_iter,
+                            early_stopping_rounds = None
                         )
         # the final prediction for this fold
         forecast = xgblss.predict(dtest)

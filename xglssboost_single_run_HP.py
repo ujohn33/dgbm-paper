@@ -63,11 +63,10 @@ args = {
 
 # Define your hyperparameter space
 param_dict = {
-    "eta": ["float", {"low": 0.0001, "high": 0.4, "log": True}],
-    "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
-    "min_child_weight": ["int", {"low": 1, "high": 10, "log": False}],
-    "subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}],
-    "colsample_bytree": ["float", {"low": 0.5, "high": 1.0, "log": False}],
+    "eta": ["float", {"low": 0.001, "high": 0.4, "log": True}],
+    "max_depth": ["int", {"low": 2, "high": 15, "log": False}],
+    "min_child_weight": ["int", {"low": 1, "high": 15, "log": False}],
+
 }
 
 
@@ -113,7 +112,7 @@ def run_single_arguement(run_seed):
     print(opt_param)
     opt_params = opt_param.copy()
     # Assuming opt_params is your dictionary of optimized parameters
-    with open('logs/xgboost/{}_opt_params.json'.format(dset), 'w') as f:
+    with open('logs/xgboost/natural/exp/{}_opt_params.json'.format(dset), 'w') as f:
         json.dump(opt_params, f)
     n_rounds = opt_params["opt_rounds"]
     del opt_params["opt_rounds"]
