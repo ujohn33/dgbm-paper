@@ -2,7 +2,7 @@
 
 ####  SBATCH --output=/dev/null
 
-#SBATCH --job-name=XGLSSboost
+#SBATCH --job-name=NGboost
 
 #SBATCH --time=1-00:00:00
 
@@ -25,12 +25,10 @@
 
 module load Python/3.10.4-GCCcore-11.3.0
 module load SciPy-bundle/2022.05-foss-2022a
-module load scikit-learn/1.1.2-foss-2022a
 module load JupyterHub/3.1.1-GCCcore-11.3.0
-module load Pillow/9.1.1-GCCcore-11.3.0
 
 source $VSC_DATA/distiboost/bin/activate
 
 cd /data/brussel/105/vsc10528/LSSboost
 
-python openml/openml_xglssboost_HP_single_run.py $SLURM_ARRAY_TASK_ID
+python openml/openml_ngboost_HP_single_run.py $SLURM_ARRAY_TASK_ID

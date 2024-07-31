@@ -59,6 +59,8 @@ args = {
     "distn": "Normal",
     "base": "tree",
     "verbose": True,
+    "verbose_eval":1,
+    "random_state":1
 }
 
 # Define your hyperparameter space

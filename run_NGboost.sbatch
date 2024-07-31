@@ -31,4 +31,4 @@ source $VSC_DATA/distiboost/bin/activate
 
 cd /data/brussel/105/vsc10528/LSSboost
 
-python ng_boost_single_run.py $SLURM_ARRAY_TASK_ID
+python ng_boost_HP_single_run.py $SLURM_ARRAY_TASK_ID
