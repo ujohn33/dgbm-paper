@@ -134,6 +134,19 @@ def run_single_arguement(run_seed):
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))
 
+    if natural_flag:
+        pset_path = f'logs/ngboost/natural/exp/{dataset.name}_opt_params.json'
+        # Check if the file exists
+        if not os.path.isfile(pset_path):
+            raise FileNotFoundError(f"The JSON file {pset_path} does not exist.")
+        # Check if the file is empty
+        if os.path.getsize(pset_path) == 0:
+            raise ValueError(f"The JSON file {pset_path} is empty.")
+        with open(pset_path) as pset:
+            opt_params = json.load(pset)
+    else:
+        with open(f'logs/ngboost/normal/exp/{dataset.name}_opt_params.json') as pset:
+            opt_params = json.load(pset)
 
     for itr, (train_index, test_index) in enumerate(folds):
         # print('train_index: ')
@@ -152,13 +165,13 @@ def run_single_arguement(run_seed):
 
 
         ngb = NGBRegressor(
-            Base=base_name_to_learner[args["base"]],
+            Base=base_learner_choices[opt_params["Base"]],
             Dist=eval(args["distn"]),
             Score=eval(args["score"]),
-            n_estimators=args["n_est"],
-            learning_rate=args["lr"],
+            n_estimators=opt_params["n_estimators"],
+            learning_rate=opt_params["lr"],
             natural_gradient=args["natural"],
-            minibatch_frac=args["minibatch_frac"],
+            minibatch_frac=opt_params["minibatch_frac"],
             verbose=args["verbose"],
         )
 
@@ -179,7 +192,7 @@ def run_single_arguement(run_seed):
             Base=base_name_to_learner[args["base"]],
             Dist=eval(args["distn"]),
             Score=eval(args["score"]),
-            n_estimators=args["n_est"],
+            n_estimators=opt_params["n_estimators"],
             learning_rate=args["lr"],
             natural_gradient=args["natural"],
             minibatch_frac=args["minibatch_frac"],

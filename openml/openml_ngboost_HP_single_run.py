@@ -167,18 +167,50 @@ def run_single_argument(task_id):
         )
         
         ngb.fit(X_train, y_train)
-        y_val_pred = ngb.predict(X_val)
-        y_test_pred = ngb.predict(X_test)
 
+        # pick the best iteration on the validation set
+        y_preds = ngb.staged_predict(X_val)
+        y_forecasts = ngb.staged_pred_dist(X_val)
+
+        val_rmse = [mean_squared_error(y_pred, y_val) for y_pred in y_preds]
+        val_nll = [
+            -y_forecast.logpdf(y_val.flatten()).mean() for y_forecast in y_forecasts
+        ]
+        best_itr = np.argmin(val_rmse) + 1
+
+        ngb = NGBRegressor(
+            Base=base_learner_choices[opt_params["Base"]],
+            Dist=Normal,
+            Score=LogScore,
+            n_estimators=opt_params["n_estimators"],
+            learning_rate=opt_params["lr"],
+            natural_gradient=args["natural"],
+            minibatch_frac=opt_params["minibatch_frac"],
+            verbose=args["verbose"],
+        )
+
+        ngb.fit(X_trainall, y_trainall)
+
+        # the final prediction for this fold
+        forecast = ngb.pred_dist(X_test, max_iter=best_itr)
+        forecast_val = ngb.pred_dist(X_val, max_iter=best_itr)
+
+        # After processing all folds for a dataset:
         end_time = time.time()  # End time measurement
         elapsed_time = end_time - start_time  # Calculate elapsed time
 
-        lss_rmse += [np.sqrt(mean_squared_error(y_test, y_test_pred))]
-        val_rmse = [np.sqrt(mean_squared_error(y_val, y_val_pred))]
-        lss_nll += [-norm(y_test_pred, 1).logpdf(y_test).mean()]
-        samples = np.array([[np.random.normal(loc=loc, scale=1, size=100) for loc in y_test_pred]])
+        # set the appropriate scale if using a homoskedastic Normal
+        if args["distn"] == "NormalFixedVar":
+            scale = (
+                forecast.var * ((forecast_val.loc - y_val.flatten()) ** 2).mean() ** 0.5
+            )
+            forecast = norm_dist(loc=forecast.loc, scale=scale)
+
+        lss_rmse += [np.sqrt(mean_squared_error(forecast.mean(), y_test))]
+        lss_nll += [-forecast.logpdf(y_test.flatten()).mean()]
+        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast.loc, forecast.scale)]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
-        crps_comps = crps(y_test, samples)
+        crps_comps = crps(y_test.flatten(), samples)
         lss_crps += [crps_comps[0]]
         lss_crps_cal += [crps_comps[1]]
         lss_crps_sha += [crps_comps[2]]

@@ -2,6 +2,7 @@ import os
 import sys
 import openml
 import json
+import warnings
 from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
@@ -118,6 +119,9 @@ def run_single_argument(task_id):
     
     # Encode categorical columns
     X = encode_categorical_columns(X)
+
+    # Switch to numpy
+    X, y = X.to_numpy(), y.to_numpy()
     
     lss_rmse, lss_nll, times = [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
@@ -126,11 +130,6 @@ def run_single_argument(task_id):
 
     n_repeats, n_folds, n_samples = task.get_split_dimensions()
     print(f"Task {task_id}: number of repeats: {n_repeats}, number of folds: {n_folds}, number of samples {n_samples}.")
-
-    # Perform hyperparameter optimization on the first fold
-    train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=0, sample=0)
-    X_train_opt, X_test_opt = X.iloc[train_indices], X.iloc[test_indices]
-    y_train_opt, y_test_opt = y.iloc[train_indices], y.iloc[test_indices]
     
     if natural_flag:
         pset_path = f'logs/openml/ngboost/natural/exp/{dataset.name}_opt_params.json'
@@ -139,19 +138,30 @@ def run_single_argument(task_id):
             raise FileNotFoundError(f"The JSON file {pset_path} does not exist.")
         # Check if the file is empty
         if os.path.getsize(pset_path) == 0:
-            raise ValueError(f"The JSON file {pset_path} is empty.")
-        with open(pset_path) as pset:
-            opt_params = json.load(pset)
+            warnings.warn(f"The JSON file {pset_path} is empty.")
+            opt_params = {"lr": 0.01, "n_estimators": 2000, "minibatch_frac": 1.0, "Base": 0}
+        else:
+            with open(pset_path) as pset:
+                opt_params = json.load(pset)
     else:
-        with open(f'logs/openml/ngboost/normal/exp/{dataset.name}_opt_params.json') as pset:
-            opt_params = json.load(pset)
+        pset_path = f'logs/openml/ngboost/normal/exp/{dataset.name}_opt_params.json'
+        # Check if the file exists
+        if not os.path.isfile(pset_path):
+            raise FileNotFoundError(f"The JSON file {pset_path} does not exist.")
+        # Check if the file is empty
+        if os.path.getsize(pset_path) == 0:
+            warnings.warn(f"The JSON file {pset_path} is empty.")
+            opt_params = {"lr": 0.01, "n_estimators": 2000, "minibatch_frac": 1.0, "Base": 0}
+        else:
+            with open(pset_path) as pset:
+                opt_params = json.load(pset)
 
     # Evaluate the optimized parameters on the remaining folds
     for fold in range(1, n_folds):
         train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=fold, sample=0)
         start_time = time.time()
-        X_trainall, X_test = X.iloc[train_indices], X.iloc[test_indices]
-        y_trainall, y_test = y.iloc[train_indices], y.iloc[test_indices]
+        X_trainall, X_test = X[train_indices], X[test_indices]
+        y_trainall, y_test = y[train_indices], y[test_indices]
 
         X_train, X_val, y_train, y_val = train_test_split(X_trainall, y_trainall, test_size=0.2)
         
@@ -167,22 +177,55 @@ def run_single_argument(task_id):
         )
         
         ngb.fit(X_train, y_train)
-        y_val_pred = ngb.predict(X_val)
-        y_test_pred = ngb.predict(X_test)
 
+        # pick the best iteration on the validation set
+        y_preds = ngb.staged_predict(X_val)
+        y_forecasts = ngb.staged_pred_dist(X_val)
+
+        val_rmse = [mean_squared_error(y_pred, y_val) for y_pred in y_preds]
+        val_nll = [
+            -y_forecast.logpdf(y_val.flatten()).mean() for y_forecast in y_forecasts
+        ]
+        best_itr = np.argmin(val_rmse) + 1
+
+        ngb = NGBRegressor(
+            Base=base_learner_choices[opt_params["Base"]],
+            Dist=Normal,
+            Score=LogScore,
+            n_estimators=opt_params["n_estimators"],
+            learning_rate=opt_params["lr"],
+            natural_gradient=args["natural"],
+            minibatch_frac=opt_params["minibatch_frac"],
+            verbose=args["verbose"],
+        )
+
+        ngb.fit(X_trainall, y_trainall)
+
+        # the final prediction for this fold
+        forecast = ngb.pred_dist(X_test, max_iter=best_itr)
+        forecast_val = ngb.pred_dist(X_val, max_iter=best_itr)
+
+        # After processing all folds for a dataset:
         end_time = time.time()  # End time measurement
         elapsed_time = end_time - start_time  # Calculate elapsed time
 
-        lss_rmse += [np.sqrt(mean_squared_error(y_test, y_test_pred))]
-        val_rmse = [np.sqrt(mean_squared_error(y_val, y_val_pred))]
-        lss_nll += [-norm(y_test_pred, 1).logpdf(y_test).mean()]
-        samples = np.array([[np.random.normal(loc=loc, scale=1, size=100) for loc in y_test_pred]])
+        # set the appropriate scale if using a homoskedastic Normal
+        if args["distn"] == "NormalFixedVar":
+            scale = (
+                forecast.var * ((forecast_val.loc - y_val.flatten()) ** 2).mean() ** 0.5
+            )
+            forecast = norm_dist(loc=forecast.loc, scale=scale)
+
+        lss_rmse += [np.sqrt(mean_squared_error(forecast.mean(), y_test))]
+        lss_nll += [-forecast.logpdf(y_test.flatten()).mean()]
+        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast.loc, forecast.scale)]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
-        crps_comps = crps(y_test, samples)
+        crps_comps = crps(y_test.flatten(), samples)
         lss_crps += [crps_comps[0]]
         lss_crps_cal += [crps_comps[1]]
         lss_crps_sha += [crps_comps[2]]
         times += [elapsed_time]
+
 
         print(
                 "[%d/%d] RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_CAL=%.4f CRPS_SHA=%.4f TIME=%.4f"
@@ -190,7 +233,7 @@ def run_single_argument(task_id):
                     fold,
                     n_folds,
                     np.sqrt(val_rmse[0]),
-                    np.sqrt(mean_squared_error(y_test, y_test_pred)),
+                    lss_rmse[-1],
                     lss_nll[-1],
                     lss_crps[-1],
                     lss_crps_cal[-1],
