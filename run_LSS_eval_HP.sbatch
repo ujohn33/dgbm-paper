@@ -10,10 +10,10 @@
 
 #SBATCH --partition=skylake,skylake_mpi
 
-#SBATCH --mem-per-cpu=40G
+#SBATCH --mem-per-cpu=60G
 
-#####SBATCH --array=0-16
-#SBATCH --array=0-16
+#####SBATCH --array=0-20
+#SBATCH --array=0-20
 #SBATCH --mail-type=ALL
 
 

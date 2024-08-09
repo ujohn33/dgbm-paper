@@ -132,8 +132,10 @@ def run_single_argument(task_id):
     X_train_opt, X_test_opt = X.iloc[train_indices], X.iloc[test_indices]
     y_train_opt, y_test_opt = y.iloc[train_indices], y.iloc[test_indices]
 
+    start_time_HP = time.time()
     study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner())
     study.optimize(lambda trial: objective(trial, X_train_opt.values, y_train_opt.values), n_trials=20, timeout=3000*60)
+    elapsed_time_HP = time.time() - start_time_HP
 
     print("Best hyperparameters: ", study.best_params)
 
@@ -149,7 +151,6 @@ def run_single_argument(task_id):
     # Evaluate the optimized parameters on the remaining folds
     for fold in range(1, n_folds):
         train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=fold, sample=0)
-        start_time = time.time()
         X_trainall, X_test = X.iloc[train_indices], X.iloc[test_indices]
         y_trainall, y_test = y.iloc[train_indices], y.iloc[test_indices]
 
@@ -178,6 +179,7 @@ def run_single_argument(task_id):
         ]
         best_itr = np.argmin(val_rmse) + 1
 
+        start_time = time.time()
         ngb = NGBRegressor(
             Base=base_learner_choices[opt_params["Base"]],
             Dist=Normal,
@@ -196,8 +198,7 @@ def run_single_argument(task_id):
         forecast_val = ngb.pred_dist(X_val, max_iter=best_itr)
 
         # After processing all folds for a dataset:
-        end_time = time.time()  # End time measurement
-        elapsed_time = end_time - start_time  # Calculate elapsed time
+        runtime_pred = time.time() - start_time  # Calculate elapsed time
 
         # set the appropriate scale if using a homoskedastic Normal
         if args["distn"] == "NormalFixedVar":
@@ -214,7 +215,7 @@ def run_single_argument(task_id):
         lss_crps += [crps_comps[0]]
         lss_crps_cal += [crps_comps[1]]
         lss_crps_sha += [crps_comps[2]]
-        times += [elapsed_time]
+        times += [runtime_pred]
 
         print(
                 "[%d/%d] RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_CAL=%.4f CRPS_SHA=%.4f TIME=%.4f"
@@ -227,7 +228,7 @@ def run_single_argument(task_id):
                     lss_crps[-1],
                     lss_crps_cal[-1],
                     lss_crps_sha[-1],
-                    elapsed_time,
+                    elapsed_time_HP,
                 )
             )
 
@@ -249,9 +250,11 @@ def run_single_argument(task_id):
                 np.mean(times)  # Include elapsed time in the output
             )
         )
-    return dataset.name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times)
+    return dataset.name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), elapsed_time_HP
 
 if __name__ == "__main__":
+    print("NGBOOST")
+    print("______________________")
     results = []
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     result = run_single_argument(task_number)
@@ -260,5 +263,5 @@ if __name__ == "__main__":
         file = open("logs/openml_NGBoost_natural.csv", "a+")
     else:
         file = open("logs/openml_NGBoost_no_natural.csv", "a+")
-    file.write(f"\n{result[0]}, {result[1]}, {result[2]}, {result[3]}, {result[4]}, {result[5]}, {result[6]}, {result[7]}, {result[8]}, {result[9]}, {result[10]}, {result[11]}")
+    file.write(f"\n{result[0]}, {result[1]}, {result[2]}, {result[3]}, {result[4]}, {result[5]}, {result[6]}, {result[7]}, {result[8]}, {result[9]}, {result[10]}, {result[11]}, {result[12]}")
     file.close()

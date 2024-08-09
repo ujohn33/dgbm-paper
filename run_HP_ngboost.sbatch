@@ -10,10 +10,10 @@
 
 #SBATCH --partition=skylake,skylake_mpi
 
-#SBATCH --mem-per-cpu=40G
+#SBATCH --mem-per-cpu=60G
 
-#####SBATCH --array=0-16
-#SBATCH --array=0-16
+#####SBATCH --array=0-20
+#SBATCH --array=0-20
 #SBATCH --mail-type=ALL
 
 
@@ -31,4 +31,4 @@ source $VSC_DATA/distiboost/bin/activate
 
 cd /data/brussel/105/vsc10528/LSSboost
 
-python openml/openml_ngboost_single_run.py $SLURM_ARRAY_TASK_ID
+python openml/openml_ngboost_HP_single_run.py $SLURM_ARRAY_TASK_ID

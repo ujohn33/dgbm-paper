@@ -41,7 +41,7 @@ benchmark_suite = openml.study.get_suite(SUITE_ID)  # obtain the benchmark suite
 
 # Define your hyperparameter space
 param_dict = {
-    "eta": ["float", {"low": 0.025, "high": 0.025, "log": False}],
+    "eta": ["float", {"low": 0.001, "high": 0.4, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 3, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 200, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
@@ -80,6 +80,9 @@ def run_single_argument(task_id):
                                     nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=3000, n_trials=80,
                                     silence=True, seed=1, hp_seed=1)
 
+    end_time = time.time()  # End time measurement
+    elapsed_time_HP = end_time - start_time  # Calculate elapsed time
+
     print(opt_param)
     opt_params = opt_param.copy()
     if natural_flag:
@@ -113,15 +116,17 @@ def run_single_argument(task_id):
         full_train_data = lgb.Dataset(X_trainall, y_trainall)
         opt_params['early_stopping'] = None
 
+        runtime_start = time.time()
+
         final_gbm = lgblss.train(opt_params, full_train_data, 
                             num_boost_round=lgblss.booster.best_iteration,
                         )
 
         forecast = lgblss.predict(X_test)
-        forecast_val = lgblss.predict(X_val)
+        
+        runtime_pred = time.time() - runtime_start
 
-        end_time = time.time()  # End time measurement
-        elapsed_time = end_time - start_time  # Calculate elapsed time
+        forecast_val = lgblss.predict(X_val)
 
         lss_rmse += [np.sqrt(mean_squared_error(forecast['loc'].values, y_test))]
         val_rmse = [np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))]
@@ -132,7 +137,7 @@ def run_single_argument(task_id):
         lss_crps += [crps_comps[0]]
         lss_crps_cal += [crps_comps[1]]
         lss_crps_sha += [crps_comps[2]]
-        times += [elapsed_time]
+        times += [runtime_pred]
 
         print(
                 "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_CAL=%.4f CRPS_SHA=%.4f TIME=%.4f"
@@ -146,7 +151,7 @@ def run_single_argument(task_id):
                     lss_crps[-1],
                     lss_crps_cal[-1],
                     lss_crps_sha[-1],
-                    elapsed_time,
+                    elapsed_time_HP,
                 )
             )
 
@@ -168,9 +173,11 @@ def run_single_argument(task_id):
                 np.mean(times)  # Include elapsed time in the output
             )
         )
-    return dataset.name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times)
+    return dataset.name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), elapsed_time_HP
 
 if __name__ == "__main__":
+    print("LIGHTGBMLSS")
+    print("______________________")
     results = []
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     result = run_single_argument(task_number)
@@ -179,5 +186,5 @@ if __name__ == "__main__":
         file = open("logs/openml_LSSboost_natural.csv", "a+")
     else:
         file = open("logs/openml_LSSboost_no_natural.csv", "a+")
-    file.write(f"\n{result[0]}, {result[1]}, {result[2]}, {result[3]}, {result[4]}, {result[5]}, {result[6]}, {result[7]}, {result[8]}, {result[9]}, {result[10]}, {result[11]}")
+    file.write(f"\n{result[0]}, {result[1]}, {result[2]}, {result[3]}, {result[4]}, {result[5]}, {result[6]}, {result[7]}, {result[8]}, {result[9]}, {result[10]}, {result[11]}, {result[12]}")
     file.close()

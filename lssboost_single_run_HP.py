@@ -63,7 +63,7 @@ args = {
 
 # Define your hyperparameter space
 param_dict = {
-    "eta": ["float", {"low": 0.025, "high": 0.025, "log": False}],
+    "eta": ["float", {"low": 0.001, "high": 0.4, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 3, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 200, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
@@ -74,7 +74,6 @@ param_dict = {
 def run_single_arguement(run_seed):
     dset = dataset_list[int(run_seed)]
     args["dataset"] = dset
-    y_true, lss_rmse, lss_nll, times = [], [], [], []
 
     # Load dataset -- use last column as labela
     data = dataset_name_to_loader[args['dataset']]()
@@ -82,7 +81,8 @@ def run_single_arguement(run_seed):
 
     print(f"== Dataset={args['dataset']} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
 
-    lgbm_rmse = []
+    lss_rmse, lss_nll, times = [], [], []
+    lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
 
     start_time = time.time()  # Start time measurement
 
