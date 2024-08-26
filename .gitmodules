@@ -7,3 +7,6 @@
 [submodule "properscoring"]
 	path = properscoring
 	url = git@github.com:tozech/properscoring.git
+[submodule "pgbm"]
+	path = pgbm
+	url = git@github.com:elephaint/pgbm.git

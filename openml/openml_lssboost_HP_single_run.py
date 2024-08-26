@@ -25,7 +25,7 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 SUITE_ID = 336 # Regression on numerical features
 np.random.seed(1)
 mode = 'exp'
-natural_flag = False
+natural_flag = True
 args = {
     "reps": 3,
     "n_est": 2000,
@@ -41,8 +41,8 @@ benchmark_suite = openml.study.get_suite(SUITE_ID)  # obtain the benchmark suite
 
 # Define your hyperparameter space
 param_dict = {
-    "eta": ["float", {"low": 0.001, "high": 0.4, "log": True}],
-    "max_depth": ["int", {"low": 2, "high": 3, "log": False}],
+    "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
+    "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 200, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "feature_pre_filter": ["categorical", [False]]

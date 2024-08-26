@@ -2,6 +2,7 @@
 *.out
 *.pyc
 .out
+archive
 logs
 logs/LSSboost_logloss.csv
 .DS_Store

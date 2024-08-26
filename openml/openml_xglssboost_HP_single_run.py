@@ -40,9 +40,9 @@ benchmark_suite = openml.study.get_suite(SUITE_ID)  # obtain the benchmark suite
 
 # Define your hyperparameter space
 param_dict = {
-    "max_depth": ["int", {"low": 1, "high": 11, "log": False}],
+    "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "min_child_weight": ["int", {"low": 1, "high": 100, "log": True}],
-    "eta": ["float", {"low": 1e-5, "high": 0.7, "log": True}],
+    "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
     "subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}]
 }
 
@@ -126,6 +126,7 @@ def run_single_argument(task_id):
         opt_params['early_stopping'] = None
         best_iter = xgblss.booster.best_iteration
 
+        best_iter = xgblss.booster.best_iteration
         runtime_start = time.time()
         final_gbm = xgblss.train(opt_params, full_train_data, 
                             num_boost_round=best_iter,
