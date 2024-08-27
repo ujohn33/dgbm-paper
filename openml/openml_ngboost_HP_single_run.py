@@ -260,8 +260,8 @@ if __name__ == "__main__":
     result = run_single_argument(task_number)
     results.append(result)
     if natural_flag:
-        file = open("logs/openml_NGBoost_natural.csv", "a+")
+        file = open("logs/openml/openml_NGBoost_natural.csv", "a+")
     else:
-        file = open("logs/openml_NGBoost_no_natural.csv", "a+")
+        file = open("logs/openml/openml_NGBoost_no_natural.csv", "a+")
     file.write(f"\n{result[0]}, {result[1]}, {result[2]}, {result[3]}, {result[4]}, {result[5]}, {result[6]}, {result[7]}, {result[8]}, {result[9]}, {result[10]}, {result[11]}, {result[12]}")
     file.close()

@@ -2,7 +2,7 @@
 
 ####  SBATCH --output=/dev/null
 
-#SBATCH --job-name=XGLSSboost
+#SBATCH --job-name=PBGM_openml
 
 #SBATCH --time=1-12:00:00
 
@@ -10,10 +10,10 @@
 
 #SBATCH --partition=skylake,skylake_mpi
 
-#SBATCH --mem-per-cpu=40G
+#SBATCH --mem-per-cpu=60G
 
-#####SBATCH --array=0-9
-#SBATCH --array=0-9
+#####SBATCH --array=0-18
+#SBATCH --array=0-18
 #SBATCH --mail-type=ALL
 
 
@@ -33,4 +33,4 @@ source $VSC_DATA/distiboost/bin/activate
 
 cd /data/brussel/105/vsc10528/LSSboost
 
-python uci/UCI_xglssboost_HP_single_run.py $SLURM_ARRAY_TASK_ID
+python openml/openml_pgbm_HP_single_run.py $SLURM_ARRAY_TASK_ID

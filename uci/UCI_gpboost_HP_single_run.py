@@ -6,12 +6,11 @@ import numpy as np
 import pandas as pd
 import time
 import torch
+import gpboost as gpb
 from sklearn.metrics import mean_squared_error
-from pgbm.torch import PGBMRegressor
 from sklearn.model_selection import KFold, train_test_split
 from pathlib import Path
 import optuna
-from pgbm.torch import PGBM
 from sklearn.model_selection import train_test_split, cross_val_score
 from scipy.stats import norm
 from properscoring._mean_crps import _mean_crps_hersbach
@@ -78,8 +77,8 @@ def gpboost_objective(X_train, y_train, trial):
     dtrain = gpb.Dataset(X_train, y_train)
     
     cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=200, nfold=5, early_stopping_rounds=10)
-    
-    return np.mean(cv_results['test_neg_log_likelihood'])
+    #print(cv_results)
+    return np.mean(cv_results['test_neg_log_likelihood-mean'])
 
 def run_single_argument(run_seed):
     dset = dataset_list[int(run_seed)]
@@ -138,9 +137,9 @@ def run_single_argument(run_seed):
         #X_train, X_test, y_train, y_test = get_fold(dataset_name, data, fold)
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
-        indices = np.arrange(len(y_train))
+        indices = np.arange(len(y_train))
         X_train_val, X_val, y_train_val, y_val, train_val_ind, val_ind = train_test_split(X_train, y_train, indices, test_size=0.2)
-        group = np.arrange(len(y_train))
+        group = np.arange(len(y_train))
 
         # Hyperparameter optimization with Optuna
         start_time = time.time()
@@ -154,7 +153,7 @@ def run_single_argument(run_seed):
         best_params = study.best_params
         print(f'Best hyperparameters for fold {itr + 1}: {best_params}')
 
-        gp_model = gpb.GPModel(group_data=group, likelihood="gaussian")
+        gp_model = gpb.GPModel(group_data=group[train_val_ind], likelihood="gaussian")
         dtrain = gpb.Dataset(X_train, y_train)
         dtrain_val = gpb.Dataset(X_train_val, y_train_val)
         deval = gpb.Dataset(X_val, y_val, reference=dtrain_val)
@@ -162,32 +161,40 @@ def run_single_argument(run_seed):
         eval_ind = val_ind
         # Use a valiation set for finding the optimal number of iterations
         gp_model.set_prediction_data(group_data_pred=group[eval_ind])
-        st = gpb.train(params=params, train_set=dtrain_val, num_boost_round=200,
+        evals_result = {}  # record eval results for plotting
+        st = gpb.train(params=best_params, train_set=dtrain_val, num_boost_round=200,
                 gp_model=gp_model, valid_sets=deval, 
-                early_stopping_rounds=20, use_gp_model_for_validation=True)
-        metric_name = list(st.keys())[0]
-        print("Best number of iterations: " + str(np.argmin(st[metric_name]) + 1))
-        best_iter = np.argmin(st[metric_name]) + 1
+                early_stopping_rounds=20, use_gp_model_for_validation=True,
+                evals_result=evals_result)
+        #print(evals_result)
+        # Step 1: Extract the test_neg_log_likelihood list
+        neg_log_likelihood_list = evals_result['valid_0']['test_neg_log_likelihood']
+
+        # Step 2: Find the index of the minimum value in the list
+        min_index = neg_log_likelihood_list.index(min(neg_log_likelihood_list))
+        print("Best number of iterations: " + str(min_index + 1))
+        best_iter = min_index + 1
 
         # Train the final model configuration
         print('Training final model...')
         start_time = time.time()
-        st_final = gpb.train(params=params, train_set=dtrain_val, num_boost_round=best_iter,
+        st_final = gpb.train(params=best_params, train_set=dtrain_val, num_boost_round=best_iter,
             gp_model=gp_model, use_gp_model_for_validation=True)
         training_time = time.time() - start_time
         print(f'Training time for fold {itr + 1}: {training_time:.2f} seconds')
 
         # Make predictions
         print('Prediction...')
-        pred = st_final.predict(X_test, predict_var=True, pred_latent=False)
+        group_test = np.arange(len(y_test))
+        pred = st_final.predict(X_test, group_data_pred=group_test, predict_var=True, pred_latent=False)
         mu = pred['response_mean']
         var = pred['response_var']
 
         # Compute metrics
-        rmse = rmseloss_metric(mu, y_test).numpy()
+        rmse = np.sqrt(mean_squared_error(mu, y_test))
         nll_test = -norm(mu, var).logpdf(y_test.flatten()).mean()
 
-        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]])
+        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(mu, var)]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test.flatten(), samples)
 
@@ -209,7 +216,7 @@ def run_single_argument(run_seed):
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(sys.argv[1])
-    file = open("logs/uci/PGBM_no_natural.csv", "a+")
+    file = open("logs/uci/gpboost.csv", "a+")
     file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
     file.close()
 

@@ -24,7 +24,7 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 SUITE_ID = 336 # Regression on numerical features
 np.random.seed(1)
 mode = 'exp'
-natural_flag = False
+natural_flag = True
 args = {
     "reps": 3,
     "n_est": 2000,

@@ -52,7 +52,7 @@ dataset_name_to_loader = {
 }
 
 dataset_list = ["Boston Housing", "Concrete Compression Strength", "Energy Efficiency", "Kin8nm", "Naval Propulsion", "Combined Cycle Power Plant", "Protein Structure", "Wine Quality Red", "Yacht Hydrodynamics", "Year Prediciton MSD"]
-n_forecasts = 1000
+n_forecasts = 100
 
 # Hardcoded parameters for testing
 args = {
@@ -96,6 +96,7 @@ class Objective(object):
 
 def run_single_argument(run_seed):
     dset = dataset_list[int(run_seed)]
+    print(dset)
     args["dataset"] = dset
     y_true, lss_rmse, lss_nll, times, times_HP = [], [], [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
@@ -189,7 +190,7 @@ def run_single_argument(run_seed):
         yhat_dist, mu, var = model.predict_dist(X_test, n_forecasts=n_forecasts, parallel=False, output_sample_statistics=True)
 
         # Compute metrics
-        rmse = rmseloss_metric(yhat_point.cpu(), y_test).numpy()
+        rmse = np.sqrt(mean_squared_error(yhat_point, y_test))
         crps_test = model.crps_ensemble(yhat_dist, y_test).mean().numpy()
         nll_test = -norm(mu, var).logpdf(y_test.flatten()).mean()
     

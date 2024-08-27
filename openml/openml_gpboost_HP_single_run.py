@@ -6,12 +6,12 @@ import json
 import numpy as np
 import pandas as pd
 import time
+import torch
+import gpboost as gpb
 from sklearn.metrics import mean_squared_error
-from pgbm.torch import PGBMRegressor
 from sklearn.model_selection import KFold, train_test_split
 from pathlib import Path
 import optuna
-from pgbm.torch import PGBM
 from sklearn.model_selection import train_test_split, cross_val_score
 from scipy.stats import norm
 from properscoring._mean_crps import _mean_crps_hersbach
@@ -49,15 +49,6 @@ def encode_categorical_columns(df):
         df[col] = df[col].cat.codes
     return df
 
-def objective(yhat, y, sample_weight=None):
-    gradient = (yhat - y)
-    hessian = torch.ones_like(yhat)
-    return gradient, hessian
-
-def rmseloss_metric(yhat, y, sample_weight=None):
-    loss = (yhat - y).pow(2).mean().sqrt()
-    return loss
-
 # Define the Optuna objective class for hyperparameter tuning
 class Objective(object):
     def __init__(self, X_train, y_train):
@@ -66,18 +57,20 @@ class Objective(object):
         
     def __call__(self, trial):
         params = {
-            'n_estimators': 200,
-            'bagging_fraction': trial.suggest_uniform('bagging_fraction', 0.5, 1.0),
-            'learning_rate': trial.suggest_loguniform('learning_rate', 1e-5, 0.4),
-            'max_leaves': trial.suggest_int('max_leaves', 20, 200),
-            'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 20, 100),  # Constant for this example
-            'n_estimators': trial.suggest_int('n_estimators', 10, 200),
-            'device': 'gpu'
+            'learning_rate': trial.suggest_loguniform('learning_rate', 1e-4, 0.1),
+            'max_depth': trial.suggest_int('max_depth', 1, 6),
+            'num_leaves': trial.suggest_int('num_leaves', 2, 64),
+            'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 10, 100),
+            'lambda_l2': trial.suggest_loguniform('lambda_l2', 1e-4, 1),
+            'verbose': -1
         }
-        model = PGBMRegressor()
-        model.set_params(**params)
-        score = np.mean(cross_val_score(model, self.X_train, self.y_train, cv=5, n_jobs=5, scoring='neg_root_mean_squared_error'))
-        return score
+        
+        gp_model = gpb.GPModel(group_data=np.arange(len(self.y_train)), likelihood="gaussian")
+        dtrain = gpb.Dataset(self.X_train, self.y_train)
+        
+        cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=200, nfold=5, early_stopping_rounds=10)
+        #print(cv_results)
+        return np.mean(cv_results['test_neg_log_likelihood-mean'])
 
 def run_single_argument(task_id):
     task = openml.tasks.get_task(task_id)  # download the OpenML task
@@ -85,6 +78,7 @@ def run_single_argument(task_id):
     X, y, categorical_indicator, attribute_names = dataset.get_data(
         dataset_format="dataframe", target=dataset.default_target_attribute
     )
+    print(f'Processing the dataset: {dataset.name}')
     
     # Encode categorical columns
     X = encode_categorical_columns(X)
@@ -120,38 +114,57 @@ def run_single_argument(task_id):
     # Evaluate the optimized parameters on the remaining folds
     for fold in range(1, n_folds):
         train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=fold, sample=0)
-        X_trainall, X_test = X.iloc[train_indices], X.iloc[test_indices]
-        y_trainall, y_test = y.iloc[train_indices], y.iloc[test_indices]
+        X_train, X_test = X.iloc[train_indices], X.iloc[test_indices]
+        y_train, y_test = y.iloc[train_indices], y.iloc[test_indices]
 
-        X_train, X_val, y_train, y_val = train_test_split(X_trainall, y_trainall, test_size=0.2)
+        indices = np.arange(len(y_train))
+        X_train_val, X_val, y_train_val, y_val, train_val_ind, val_ind = train_test_split(X_train, y_train, indices, test_size=0.2)
+        group = np.arange(len(y_train))
 
-        train_data = (X_trainall.values, y_trainall.values)
-        train_val_data = (X_train.values, y_train.values)
-        valid_data = (X_val.values, y_val.values)
+        train_data = gpb.Dataset(X_train.values, y_train.values)
+        train_val_data = gpb.Dataset(X_train_val.values, y_train_val.values)
+        valid_data = gpb.Dataset(X_val.values, y_val.values)
 
         # Train the final model on the full training set (including validation)
         print('Training validation model...')
-        model = PGBM()
-        model.train(train_val_data, objective=objective, metric=rmseloss_metric, valid_set=(X_val.values, y_val.values), params=best_params)
-        best_params['n_estimators'] = model.best_iteration
+        gp_model = gpb.GPModel(group_data=group[train_val_ind], likelihood="gaussian")
+        eval_ind = val_ind
+        # Use a valiation set for finding the optimal number of iterations
+        gp_model.set_prediction_data(group_data_pred=group[eval_ind])
+        evals_result = {}  # record eval results for plotting
+        st = gpb.train(params=best_params, train_set=train_val_data, num_boost_round=200,
+                gp_model=gp_model, valid_sets=valid_data, 
+                early_stopping_rounds=20, use_gp_model_for_validation=True,
+                evals_result=evals_result)
+        # Step 1: Extract the test_neg_log_likelihood list
+        neg_log_likelihood_list = evals_result['valid_0']['test_neg_log_likelihood']
+
+        # Step 2: Find the index of the minimum value in the list
+        min_index = neg_log_likelihood_list.index(min(neg_log_likelihood_list))
+        print("Best number of iterations: " + str(min_index + 1))
+        best_iter = min_index + 1
 
         print('Training final model...')
         start_time = time.time()
-        model = PGBM()
-        model.train(train_data,  objective=objective, metric=rmseloss_metric, params=best_params)
+        st_final = gpb.train(params=best_params, train_set=train_val_data, num_boost_round=best_iter,
+        gp_model=gp_model, use_gp_model_for_validation=True)
         training_time = time.time() - start_time
+        print(f'Training time for fold {fold + 1}: {training_time:.2f} seconds')
         
         # Make predictions
         print('Prediction...')
-        yhat_point  = model.predict(X_test.values)
-        yhat_dist, mu, var = model.predict_dist(X_test.values, n_forecasts=n_forecasts, parallel=False, output_sample_statistics=True)
+        group_test = np.arange(len(y_test))
+        pred = st_final.predict(X_test.values, group_data_pred=group_test, predict_var=True, pred_latent=False)
+        mu = pred['response_mean']
+        var = pred['response_var']
 
         # Compute metrics
-        rmse = np.sqrt(mean_squared_error(yhat_point, y_test))
+        rmse = np.sqrt(mean_squared_error(mu, y_test))
         nll_test = -norm(mu, var).logpdf(y_test).mean()
-    
-        yhat_dist = yhat_dist.reshape(yhat_dist.shape[1], yhat_dist.shape[0])
-        crps_comps = crps(y_test, yhat_dist)
+
+        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(mu, var)]])
+        samples = samples.reshape(samples.shape[1], samples.shape[2])
+        crps_comps = crps(y_test, samples)
         crps_test = crps_comps[0]
         crps_cal, crps_sha = crps_comps[1], crps_comps[2]
 
@@ -171,12 +184,13 @@ def run_single_argument(task_id):
 
 
 if __name__ == "__main__":
-    print("PGBM")
+    print("gpboost")
     print("______________________")
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
+    print("Task number: " + str(task_number))
     result = run_single_argument(task_number)
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(sys.argv[1])
-    file = open("logs/openml/PBGM_no_natural.csv", "a+")
+    file = open("logs/openml/gpboost_openml.csv", "a+")
     file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
     file.close()
