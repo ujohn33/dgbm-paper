@@ -44,9 +44,16 @@ args = {
 # Obtain the benchmark suite from OpenML
 benchmark_suite = openml.study.get_suite(SUITE_ID) 
 
+def encode_categorical_series(y):
+    # Check if the series is of type 'category' or 'object' (strings)
+    if y.dtype.name == 'category' or y.dtype == 'object':
+        y = y.astype('category').cat.codes  # Convert to category first, then encode
+    return y
+
 def encode_categorical_columns(df):
-    for col in df.select_dtypes(include=['category']).columns:
-        df[col] = df[col].cat.codes
+    # Iterate over columns that are either categorical or contain strings (objects)
+    for col in df.select_dtypes(include=['category', 'object']).columns:
+        df[col] = df[col].astype('category').cat.codes  # Convert to category first, then encode
     return df
 
 # Define the Optuna objective class for hyperparameter tuning
@@ -57,11 +64,11 @@ class Objective(object):
         
     def __call__(self, trial):
         params = {
-            'learning_rate': trial.suggest_loguniform('learning_rate', 1e-4, 0.1),
+            'learning_rate': trial.suggest_float('learning_rate', 1e-4, 0.1),
             'max_depth': trial.suggest_int('max_depth', 1, 6),
             'num_leaves': trial.suggest_int('num_leaves', 2, 64),
             'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 10, 100),
-            'lambda_l2': trial.suggest_loguniform('lambda_l2', 1e-4, 1),
+            'lambda_l2': trial.suggest_float('lambda_l2', 1e-4, 1),
             'verbose': -1
         }
         
@@ -82,11 +89,13 @@ def run_single_argument(task_id):
     
     # Encode categorical columns
     X = encode_categorical_columns(X)
+    y = encode_categorical_series(y)
 
     lss_rmse, lss_nll, times, times_HP = [], [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
 
-    print(f"== Task ID={task_id} Dataset={dataset.name} X.shape={str(X.shape)} {args['distn']}")
+    dset_name = dataset.name
+    print(f"== Task ID={task_id} Dataset={dset_name} X.shape={str(X.shape)} {args['distn']}")
 
     n_repeats, n_folds, n_samples = task.get_split_dimensions()
     print(f"Task {task_id}: number of repeats: {n_repeats}, number of folds: {n_folds}, number of samples {n_samples}.")
@@ -177,9 +186,9 @@ def run_single_argument(task_id):
         times += [training_time]
         times_HP += [elapsed_time_HP]
 
-    print(f'Completed dataset: {dataset.name}')
+    print(f'Completed dataset: {dset_name}')
     # return a dictonary of val
-    return  dataset.name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), np.mean(times_HP)
+    return  dset_name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), np.mean(times_HP)
 
 
 
@@ -188,9 +197,8 @@ if __name__ == "__main__":
     print("______________________")
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     print("Task number: " + str(task_number))
-    result = run_single_argument(task_number)
     vsc_data = os.environ['VSC_DATA']
-    results = run_single_argument(sys.argv[1])
+    results = run_single_argument(task_number)
     file = open("logs/openml/gpboost_openml.csv", "a+")
     file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
     file.close()

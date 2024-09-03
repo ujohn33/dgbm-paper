@@ -44,9 +44,16 @@ args = {
 # Obtain the benchmark suite from OpenML
 benchmark_suite = openml.study.get_suite(SUITE_ID) 
 
+def encode_categorical_series(y):
+    # Check if the series is of type 'category' or 'object' (strings)
+    if y.dtype.name == 'category' or y.dtype == 'object':
+        y = y.astype('category').cat.codes  # Convert to category first, then encode
+    return y
+
 def encode_categorical_columns(df):
-    for col in df.select_dtypes(include=['category']).columns:
-        df[col] = df[col].cat.codes
+    # Iterate over columns that are either categorical or contain strings (objects)
+    for col in df.select_dtypes(include=['category', 'object']).columns:
+        df[col] = df[col].astype('category').cat.codes  # Convert to category first, then encode
     return df
 
 def objective(yhat, y, sample_weight=None):
@@ -68,7 +75,7 @@ class Objective(object):
         params = {
             'n_estimators': 200,
             'bagging_fraction': trial.suggest_uniform('bagging_fraction', 0.5, 1.0),
-            'learning_rate': trial.suggest_loguniform('learning_rate', 1e-5, 0.4),
+            'learning_rate': trial.suggest_float('learning_rate', 1e-5, 0.4),
             'max_leaves': trial.suggest_int('max_leaves', 20, 200),
             'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 20, 100),  # Constant for this example
             'n_estimators': trial.suggest_int('n_estimators', 10, 200),
@@ -88,6 +95,7 @@ def run_single_argument(task_id):
     
     # Encode categorical columns
     X = encode_categorical_columns(X)
+    y = encode_categorical_series(y)
 
     lss_rmse, lss_nll, times, times_HP = [], [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
@@ -174,9 +182,8 @@ if __name__ == "__main__":
     print("PGBM")
     print("______________________")
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
-    result = run_single_argument(task_number)
     vsc_data = os.environ['VSC_DATA']
-    results = run_single_argument(sys.argv[1])
+    results = run_single_argument(task_number)
     file = open("logs/openml/PBGM_no_natural.csv", "a+")
     file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
     file.close()
