@@ -76,7 +76,7 @@ def gpboost_objective(X_train, y_train, trial):
     gp_model = gpb.GPModel(group_data=np.arange(len(y_train)), likelihood="gaussian")
     dtrain = gpb.Dataset(X_train, y_train)
     
-    cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=200, nfold=5, early_stopping_rounds=10)
+    cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=2000, nfold=5, early_stopping_rounds=10)
     #print(cv_results)
     return np.mean(cv_results['test_neg_log_likelihood-mean'])
 
@@ -162,7 +162,7 @@ def run_single_argument(run_seed):
         # Use a valiation set for finding the optimal number of iterations
         gp_model.set_prediction_data(group_data_pred=group[eval_ind])
         evals_result = {}  # record eval results for plotting
-        st = gpb.train(params=best_params, train_set=dtrain_val, num_boost_round=200,
+        st = gpb.train(params=best_params, train_set=dtrain_val, num_boost_round=2000,
                 gp_model=gp_model, valid_sets=deval, 
                 early_stopping_rounds=20, use_gp_model_for_validation=True,
                 evals_result=evals_result)
@@ -217,6 +217,6 @@ if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(sys.argv[1])
     file = open("logs/uci/gpboost.csv", "a+")
-    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
+    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}, {results[12]}")
     file.close()
 

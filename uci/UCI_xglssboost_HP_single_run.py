@@ -17,7 +17,7 @@ from utils.metrics import crps
 
 np.random.seed(123)
 mode = 'exp'
-natural_flag = True
+natural_flag = False
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(

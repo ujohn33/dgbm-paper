@@ -2,9 +2,9 @@
 
 ####  SBATCH --output=/dev/null
 
-#SBATCH --job-name=PBGM
+#SBATCH --job-name=PBGM_uci
 
-#SBATCH --time=1-12:00:00
+#SBATCH --time=2-00:00:00
 
 #SBATCH --ntasks-per-node=1
 

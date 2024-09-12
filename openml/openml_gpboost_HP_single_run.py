@@ -75,7 +75,7 @@ class Objective(object):
         gp_model = gpb.GPModel(group_data=np.arange(len(self.y_train)), likelihood="gaussian")
         dtrain = gpb.Dataset(self.X_train, self.y_train)
         
-        cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=200, nfold=5, early_stopping_rounds=10)
+        cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=2000, nfold=5, early_stopping_rounds=10)
         #print(cv_results)
         return np.mean(cv_results['test_neg_log_likelihood-mean'])
 
@@ -141,7 +141,7 @@ def run_single_argument(task_id):
         # Use a valiation set for finding the optimal number of iterations
         gp_model.set_prediction_data(group_data_pred=group[eval_ind])
         evals_result = {}  # record eval results for plotting
-        st = gpb.train(params=best_params, train_set=train_val_data, num_boost_round=200,
+        st = gpb.train(params=best_params, train_set=train_val_data, num_boost_round=2000,
                 gp_model=gp_model, valid_sets=valid_data, 
                 early_stopping_rounds=20, use_gp_model_for_validation=True,
                 evals_result=evals_result)

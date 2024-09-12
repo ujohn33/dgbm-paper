@@ -52,7 +52,7 @@ dataset_name_to_loader = {
 }
 
 dataset_list = ["Boston Housing", "Concrete Compression Strength", "Energy Efficiency", "Kin8nm", "Naval Propulsion", "Combined Cycle Power Plant", "Protein Structure", "Wine Quality Red", "Yacht Hydrodynamics", "Year Prediciton MSD"]
-n_forecasts = 100
+n_forecasts = 200
 
 # Hardcoded parameters for testing
 args = {
@@ -191,11 +191,11 @@ def run_single_argument(run_seed):
 
         # Compute metrics
         rmse = np.sqrt(mean_squared_error(yhat_point, y_test))
-        crps_test = model.crps_ensemble(yhat_dist, y_test).mean().numpy()
         nll_test = -norm(mu, var).logpdf(y_test.flatten()).mean()
     
         yhat_dist = yhat_dist.reshape(yhat_dist.shape[1], yhat_dist.shape[0])
         crps_comps = crps(y_test.flatten(), yhat_dist)
+        crps_test = crps_comps[0]
         crps_cal, crps_sha = crps_comps[1], crps_comps[2]
 
         # Store results
@@ -217,6 +217,6 @@ if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(sys.argv[1])
     file = open("logs/uci/PGBM_no_natural.csv", "a+")
-    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
+    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}, {results[12]}")
     file.close()
 

@@ -29,7 +29,7 @@ SUITE_ID = 336 # Regression on numerical features
 np.random.seed(1)
 mode = 'exp'
 natural_flag = False
-n_forecasts = 100
+n_forecasts = 200
 
 # Hardcoded parameters for testing
 args = {
