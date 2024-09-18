@@ -10,10 +10,9 @@ from sklearn.model_selection import KFold, train_test_split
 from lightgbmlss.model import *
 from lightgbmlss.distributions.Gaussian import *
 from scipy.stats import norm
-from properscoring._mean_crps import _mean_crps_hersbach
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils.metrics import crps
+from utils.metrics import crps, quantile_loss
 
 
 np.random.seed(123)
@@ -25,7 +24,7 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 SUITE_ID = 336 # Regression on numerical features
 np.random.seed(1)
 mode = 'exp'
-natural_flag = True
+natural_flag = False
 args = {
     "reps": 3,
     "n_est": 2000,
@@ -51,12 +50,14 @@ param_dict = {
 def run_single_argument(task_id):
     task = openml.tasks.get_task(task_id)  # download the OpenML task
     dataset = task.get_dataset()
+    dset_name = dataset.name
     X, y, categorical_indicator, attribute_names = dataset.get_data(
         dataset_format="dataframe", target=dataset.default_target_attribute
     )
 
     lss_rmse, lss_nll, times = [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
+    wql_01, wql_05, wql_09, wql_avg = [], [], [], []
 
     print(f"== Task ID={task_id} Dataset={dataset.name} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
 
@@ -139,6 +140,24 @@ def run_single_argument(task_id):
         lss_crps_sha += [crps_comps[2]]
         times += [runtime_pred]
 
+        # Define the quantiles to evaluate
+        quantiles = [0.1, 0.5, 0.9]
+
+        # Compute the quantiles for each observation
+        quantile_preds = {}
+        quantile_losses = []
+        for q in quantiles:
+            quantile_preds[q] = norm.ppf(q, loc=forecast['loc'], scale=forecast['scale'])
+            q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
+            quantile_losses.append(q_loss)
+        
+        # Compute the average of the quantile losses (WQL as an average)
+        wql_avg_fold = np.mean(quantile_losses)
+
+        wql_01 += [quantile_losses[0]]
+        wql_05 += [quantile_losses[1]]
+        wql_09 += [quantile_losses[2]]
+        wql_avg += [wql_avg_fold]
         print(
                 "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_CAL=%.4f CRPS_SHA=%.4f TIME=%.4f"
                 % (
@@ -173,18 +192,16 @@ def run_single_argument(task_id):
                 np.mean(times)  # Include elapsed time in the output
             )
         )
-    return dataset.name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), elapsed_time_HP
+    return  dset_name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), elapsed_time_HP, np.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
 
 if __name__ == "__main__":
     print("LIGHTGBMLSS")
     print("______________________")
-    results = []
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
-    result = run_single_argument(task_number)
-    results.append(result)
+    results = run_single_argument(task_number)
     if natural_flag:
-        file = open("logs/openml_LSSboost_natural.csv", "a+")
+        file = open("logs/openml/openml_LSSboost_natural.csv", "a+")
     else:
-        file = open("logs/openml_LSSboost_no_natural.csv", "a+")
-    file.write(f"\n{result[0]}, {result[1]}, {result[2]}, {result[3]}, {result[4]}, {result[5]}, {result[6]}, {result[7]}, {result[8]}, {result[9]}, {result[10]}, {result[11]}, {result[12]}")
+        file = open("logs/openml/openml_LSSboost_no_natural.csv", "a+")
+    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}, {results[12]}, {results[13]} {results[14]}, {results[15]}, {results[16]}, {results[17]}, {results[18]}, {results[19]}, {results[20]}")
     file.close()

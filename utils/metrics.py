@@ -1,5 +1,11 @@
 import numpy as np
 
+def quantile_loss(q, y, y_pred):
+    """
+    Compute the quantile loss for a given quantile q.
+    """
+    return np.maximum(q * (y - y_pred), (1 - q) * (y_pred - y))
+
 def crps(y_true, y_pred):
     """
     Computes the Continuous Ranked Probability Score (CRPS).

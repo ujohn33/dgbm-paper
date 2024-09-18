@@ -3,6 +3,7 @@
 *.pyc
 .out
 archive
+AutogluonModels
 logs
 logs/LSSboost_logloss.csv
 .DS_Store

@@ -14,8 +14,9 @@ from ngboost.scores import LogScore
 from ngboost import NGBRegressor
 from ngboost.learners import default_linear_learner, default_tree_learner
 import optuna
-from properscoring._mean_crps import _mean_crps_hersbach
-from utils.metrics import crps
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils.metrics import crps, quantile_loss
 
 
 np.random.seed(1)

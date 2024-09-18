@@ -17,7 +17,7 @@ from scipy.stats import norm
 from properscoring._mean_crps import _mean_crps_hersbach
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils.metrics import crps
+from utils.metrics import crps, quantile_loss
 
 np.random.seed(123)
 
@@ -99,6 +99,7 @@ def run_single_argument(task_id):
 
     lss_rmse, lss_nll, times, times_HP = [], [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
+    wql_01, wql_05, wql_09, wql_avg = [], [], [], []
 
     print(f"== Task ID={task_id} Dataset={dataset.name} X.shape={str(X.shape)} {args['distn']}")
 
@@ -172,9 +173,28 @@ def run_single_argument(task_id):
         times += [training_time]
         times_HP += [elapsed_time_HP]
 
+        # Define the quantiles to evaluate
+        quantiles = [0.1, 0.5, 0.9]
+
+        # Compute the quantiles for each observation
+        quantile_preds = {}
+        quantile_losses = []
+        for q in quantiles:
+            quantile_preds[q] = norm.ppf(q, loc=mu, scale=var)
+            q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
+            quantile_losses.append(q_loss)
+        
+        # Compute the average of the quantile losses (WQL as an average)
+        wql_avg_fold = np.mean(quantile_losses)
+
+        wql_01 += [quantile_losses[0]]
+        wql_05 += [quantile_losses[1]]
+        wql_09 += [quantile_losses[2]]
+        wql_avg += [wql_avg_fold]  
+
     print(f'Completed dataset: {dataset.name}')
     # return a dictonary of val
-    return  dataset.name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), np.mean(times_HP)
+    return  dataset.name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), np.mean(times_HP), np.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
 
 
 
@@ -185,5 +205,5 @@ if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(task_number)
     file = open("logs/openml/PBGM_no_natural.csv", "a+")
-    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
+    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}, {results[12]}, {results[13]} {results[14]}, {results[15]}, {results[16]}, {results[17]}, {results[18]}, {results[19]}, {results[20]}")
     file.close()

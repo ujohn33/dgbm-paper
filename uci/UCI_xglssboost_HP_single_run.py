@@ -10,14 +10,13 @@ from sklearn.model_selection import KFold, train_test_split
 from xgboostlss.model import *
 from xgboostlss.distributions.Gaussian import *
 from scipy.stats import norm
-from properscoring._mean_crps import _mean_crps_hersbach
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils.metrics import crps
+from utils.metrics import crps, quantile_loss
 
 np.random.seed(123)
 mode = 'exp'
-natural_flag = False
+natural_flag = True
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -81,6 +80,7 @@ def run_single_arguement(run_seed):
     args["dataset"] = dset
     y_true, lss_rmse, lss_nll, times, times_HP = [], [], [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
+    wql_01, wql_05, wql_09, wql_avg = [], [], [], []
 
     # Load dataset -- use last column as labela
     data = dataset_name_to_loader[args['dataset']]()
@@ -192,12 +192,30 @@ def run_single_arguement(run_seed):
         samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test.flatten(), samples)
-        #crps_comps = _mean_crps_hersbach(y_test.flatten(), samples)
         lss_crps += [crps_comps[0]]
         lss_crps_cal += [crps_comps[1]]
         lss_crps_sha += [crps_comps[2]]
         times += [elapsed_time]
         times_HP += [elapsed_time_HP]
+
+        # Define the quantiles to evaluate
+        quantiles = [0.1, 0.5, 0.9]
+
+        # Compute the quantiles for each observation
+        quantile_preds = {}
+        quantile_losses = []
+        for q in quantiles:
+            quantile_preds[q] = norm.ppf(q, loc=forecast['loc'], scale=forecast['scale'])
+            q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
+            quantile_losses.append(q_loss)
+        
+        # Compute the average of the quantile losses (WQL as an average)
+        wql_avg_fold = np.mean(quantile_losses)
+
+        wql_01 += [quantile_losses[0]]
+        wql_05 += [quantile_losses[1]]
+        wql_09 += [quantile_losses[2]]
+        wql_avg += [wql_avg_fold]
 
         print(
                 "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_CAL=%.4f CRPS_SHA=%.4f TIME=%.4f"
@@ -235,16 +253,27 @@ def run_single_arguement(run_seed):
             )
         )
     # return a dictonary of val
-    return  dset, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), np.mean(times_HP)
+    return  dset, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), elapsed_time_HP, np.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
 
 
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
     if natural_flag:
-        file = open("logs/uci/XGboostLSS_natural.csv", "a+")
+        file_path = "logs/uci/XGLSSboost_natural.csv"
     else:
-        file = open("logs/uci/XGboostLSS_no_natural.csv", "a+")
-    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}")
-    file.close()
-   
+        file_path = "logs/uci/XGLSSboost_no_natural.csv"
+    header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
+    # Check if the file exists
+    file_exists = os.path.isfile(file_path)
+    # Open the file in append mode ('a+')
+    with open(file_path, mode='a+', newline='') as file:
+        writer = csv.writer(file)
+
+        # If the file does not exist or is empty, write the header
+        if not file_exists or os.stat(file_path).st_size == 0:
+            writer.writerow(header)  # Write header
+
+        row_to_write = f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}, {results[12]}, {results[13]} {results[14]}, {results[15]}, {results[16]}, {results[17]}, {results[18]}, {results[19]}, {results[20]}"
+        # Write the results to the file
+        writer.writerow(row_to_write)
