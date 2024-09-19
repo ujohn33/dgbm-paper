@@ -2,9 +2,9 @@
 
 ####  SBATCH --output=/dev/null
 
-#SBATCH --job-name=NGboost
+#SBATCH --job-name=autogluon_uci
 
-#SBATCH --time=1-00:00:00
+#SBATCH --time=1-12:00:00
 
 #SBATCH --ntasks-per-node=1
 
@@ -12,8 +12,8 @@
 
 #SBATCH --mem-per-cpu=60G
 
-#####SBATCH --array=0-20
-#SBATCH --array=0-20
+#####SBATCH --array=0-9
+#SBATCH --array=0-9
 #SBATCH --mail-type=ALL
 
 
@@ -25,10 +25,12 @@
 
 module load Python/3.10.4-GCCcore-11.3.0
 module load SciPy-bundle/2022.05-foss-2022a
+module load scikit-learn/1.1.2-foss-2022a
 module load JupyterHub/3.1.1-GCCcore-11.3.0
+module load Pillow/9.1.1-GCCcore-11.3.0
 
-source $VSC_DATA/distiboost/bin/activate
+source $VSC_DATA/distriboost_auto/bin/activate
 
 cd /data/brussel/105/vsc10528/LSSboost
 
-python openml/openml_ngboost_HP_single_run.py $SLURM_ARRAY_TASK_ID
+python uci/UCI_autogluon_HP_single_run.py $SLURM_ARRAY_TASK_ID

@@ -2,7 +2,7 @@
 
 ####  SBATCH --output=/dev/null
 
-#SBATCH --job-name=XGLSSboost
+#SBATCH --job-name=XGLSSboost_uci
 
 #SBATCH --time=1-12:00:00
 
@@ -33,4 +33,4 @@ source $VSC_DATA/distiboost/bin/activate
 
 cd /data/brussel/105/vsc10528/LSSboost
 
-python openml/openml_xglssboost_HP_single_run.py $SLURM_ARRAY_TASK_ID
+python uci/UCI_xglssboost_HP_single_run.py $SLURM_ARRAY_TASK_ID

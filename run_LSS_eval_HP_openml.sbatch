@@ -8,13 +8,12 @@
 
 #SBATCH --ntasks-per-node=1
 
-#SBATCH --job-name=LSSboost_uci
 #SBATCH --partition=skylake,skylake_mpi
 
 #SBATCH --mem-per-cpu=60G
 
-#####SBATCH --array=0-9
-#SBATCH --array=0-9
+#####SBATCH --array=0-18
+#SBATCH --array=0-18
 #SBATCH --mail-type=ALL
 
 
@@ -34,4 +33,4 @@ source $VSC_DATA/distiboost/bin/activate
 
 cd /data/brussel/105/vsc10528/LSSboost
 
-python uci/UCI_lssboost_single_run_HP.py $SLURM_ARRAY_TASK_ID
+python openml/openml_lssboost_HP_single_run.py $SLURM_ARRAY_TASK_ID

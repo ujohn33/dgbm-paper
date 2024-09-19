@@ -2,6 +2,7 @@ import openml
 import os
 import sys
 import json
+import csv
 import numpy as np
 import pandas as pd
 import time
@@ -249,6 +250,11 @@ if __name__ == "__main__":
         if not file_exists or os.stat(file_path).st_size == 0:
             writer.writerow(header)  # Write header
 
-        row_to_write = f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}, {results[12]}, {results[13]} {results[14]}, {results[15]}, {results[16]}, {results[17]}, {results[18]}, {results[19]}, {results[20]}"
-        # Write the results to the file
+        # Write the results to the file as a list
+        row_to_write = [results[0], results[1], results[2], results[3], results[4],
+                        results[5], results[6], results[7], results[8], results[9],
+                        results[10], results[11], results[12], results[13],
+                        results[14], results[15], results[16], results[17],
+                        results[18], results[19], results[20]]
+
         writer.writerow(row_to_write)

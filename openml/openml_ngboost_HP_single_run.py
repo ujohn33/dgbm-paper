@@ -6,7 +6,8 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 import time
-from scipy.stats import norm as norm_dist
+import csv
+from scipy.stats import norm 
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.tree import DecisionTreeRegressor
@@ -118,6 +119,9 @@ def run_single_argument(task_id):
     
     # Encode categorical columns
     X = encode_categorical_columns(X)
+
+    # Switch to numpy
+    X, y = X.to_numpy(), y.to_numpy()
     
     lss_rmse, lss_nll, times = [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
@@ -130,12 +134,12 @@ def run_single_argument(task_id):
 
     # Perform hyperparameter optimization on the first fold
     train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=0, sample=0)
-    X_train_opt, X_test_opt = X.iloc[train_indices], X.iloc[test_indices]
-    y_train_opt, y_test_opt = y.iloc[train_indices], y.iloc[test_indices]
+    X_train_opt, X_test_opt = X[train_indices], X[test_indices]
+    y_train_opt, y_test_opt = y[train_indices], y[test_indices]
 
     start_time_HP = time.time()
     study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner())
-    study.optimize(lambda trial: objective(trial, X_train_opt.values, y_train_opt.values), n_trials=20, timeout=3000*60)
+    study.optimize(lambda trial: objective(trial, X_train_opt, y_train_opt), n_trials=20, timeout=3000*60)
     elapsed_time_HP = time.time() - start_time_HP
 
     print("Best hyperparameters: ", study.best_params)
@@ -152,8 +156,8 @@ def run_single_argument(task_id):
     # Evaluate the optimized parameters on the remaining folds
     for fold in range(1, n_folds):
         train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=fold, sample=0)
-        X_trainall, X_test = X.iloc[train_indices], X.iloc[test_indices]
-        y_trainall, y_test = y.iloc[train_indices], y.iloc[test_indices]
+        X_trainall, X_test = X[train_indices], X[test_indices]
+        y_trainall, y_test = y[train_indices], y[test_indices]
 
         X_train, X_val, y_train, y_val = train_test_split(X_trainall, y_trainall, test_size=0.2)
         
@@ -206,7 +210,7 @@ def run_single_argument(task_id):
             scale = (
                 forecast.var * ((forecast_val.loc - y_val.flatten()) ** 2).mean() ** 0.5
             )
-            forecast = norm_dist(loc=forecast.loc, scale=scale)
+            forecast = norm(loc=forecast.loc, scale=scale)
 
         lss_rmse += [np.sqrt(mean_squared_error(forecast.mean(), y_test))]
         lss_nll += [-forecast.logpdf(y_test.flatten()).mean()]
@@ -225,8 +229,8 @@ def run_single_argument(task_id):
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[q] = norm.ppf(q, loc=forecast['loc'], scale=forecast['scale'])
-            q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
+            quantile_preds[str(q)] = norm.ppf(q, loc=forecast['loc'], scale=forecast['scale'])
+            q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
         
         # Compute the average of the quantile losses (WQL as an average)
@@ -278,8 +282,26 @@ if __name__ == "__main__":
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     results = run_single_argument(task_number)
     if natural_flag:
-        file = open("logs/openml/openml_NGBoost_natural.csv", "a+")
+        filepath = "logs/openml/openml_NGBoost_natural.csv"
     else:
-        file = open("logs/openml/openml_NGBoost_no_natural.csv", "a+")
-    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}, {results[12]}, {results[13]} {results[14]}, {results[15]}, {results[16]}, {results[17]}, {results[18]}, {results[19]}, {results[20]}")
-    file.close()
+        filepath = "logs/openml/openml_NGBoost_no_natural.csv"
+    header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
+    # Check if the file exists
+    file_exists = os.path.isfile(file_path)
+    # Open the file in append mode ('a+')
+    with open(file_path, mode='a+', newline='') as file:
+        writer = csv.writer(file)
+
+        # If the file does not exist or is empty, write the header
+        if not file_exists or os.stat(file_path).st_size == 0:
+            writer.writerow(header)  # Write header
+
+        # Write the results to the file as a list
+        row_to_write = [results[0], results[1], results[2], results[3], results[4],
+                        results[5], results[6], results[7], results[8], results[9],
+                        results[10], results[11], results[12], results[13],
+                        results[14], results[15], results[16], results[17],
+                        results[18], results[19], results[20]]
+
+        writer.writerow(row_to_write)
+

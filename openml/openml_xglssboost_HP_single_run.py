@@ -10,6 +10,7 @@ from sklearn.model_selection import KFold, train_test_split
 from xgboostlss.model import *
 from xgboostlss.distributions.Gaussian import *
 from scipy.stats import norm
+import csv
 from properscoring._mean_crps import _mean_crps_hersbach
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -24,7 +25,7 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 SUITE_ID = 336 # Regression on numerical features
 np.random.seed(1)
 mode = 'exp'
-natural_flag = False
+natural_flag = True
 args = {
     "reps": 3,
     "n_est": 2000,
@@ -155,8 +156,8 @@ def run_single_argument(task_id):
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[q] = norm.ppf(q, loc=forecast['loc'], scale=forecast['scale'])
-            q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
+            quantile_preds[str(q)] = norm.ppf(q, loc=forecast['loc'], scale=forecast['scale'])
+            q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
         
         # Compute the average of the quantile losses (WQL as an average)
@@ -209,8 +210,26 @@ if __name__ == "__main__":
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     results = run_single_argument(task_number)
     if natural_flag:
-        file = open("logs/openml/openml_XGBoostLSS_natural.csv", "a+")
+        file_path = "logs/openml/openml_XGBoostLSS_natural.csv"
     else:
-        file = open("logs/openml/openml_XGBoostLSS_no_natural.csv", "a+")
-    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}, {results[10]}, {results[11]}, {results[12]}, {results[13]} {results[14]}, {results[15]}, {results[16]}, {results[17]}, {results[18]}, {results[19]}, {results[20]}")
-    file.close()
+        file_path = "logs/openml/openml_XGBoostLSS_no_natural.csv"
+    header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
+    # Check if the file exists
+    file_exists = os.path.isfile(file_path)
+    # Open the file in append mode ('a+')
+    with open(file_path, mode='a+', newline='') as file:
+        writer = csv.writer(file)
+
+        # If the file does not exist or is empty, write the header
+        if not file_exists or os.stat(file_path).st_size == 0:
+            writer.writerow(header)  # Write header
+
+        # Write the results to the file as a list
+        row_to_write = [results[0], results[1], results[2], results[3], results[4],
+                        results[5], results[6], results[7], results[8], results[9],
+                        results[10], results[11], results[12], results[13],
+                        results[14], results[15], results[16], results[17],
+                        results[18], results[19], results[20]]
+
+        writer.writerow(row_to_write)
+

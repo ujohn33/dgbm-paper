@@ -2,13 +2,12 @@
 
 ####  SBATCH --output=/dev/null
 
-#SBATCH --job-name=LSSboost
+#SBATCH --job-name=ngboost_uci
 
-#SBATCH --time=1-12:00:00
+#SBATCH --time=1-00:00:00
 
 #SBATCH --ntasks-per-node=1
 
-#SBATCH --job-name=LSSboost_uci
 #SBATCH --partition=skylake,skylake_mpi
 
 #SBATCH --mem-per-cpu=60G
@@ -26,12 +25,10 @@
 
 module load Python/3.10.4-GCCcore-11.3.0
 module load SciPy-bundle/2022.05-foss-2022a
-module load scikit-learn/1.1.2-foss-2022a
 module load JupyterHub/3.1.1-GCCcore-11.3.0
-module load Pillow/9.1.1-GCCcore-11.3.0
 
 source $VSC_DATA/distiboost/bin/activate
 
 cd /data/brussel/105/vsc10528/LSSboost
 
-python uci/UCI_lssboost_single_run_HP.py $SLURM_ARRAY_TASK_ID
+python uci/UCI_ngboost_single_run_optimized.py $SLURM_ARRAY_TASK_ID

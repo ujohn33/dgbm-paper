@@ -2,6 +2,7 @@ import openml
 import os
 import sys
 import json
+import csv
 import numpy as np
 import pandas as pd
 import time
@@ -96,10 +97,11 @@ def run_single_argument(task_id, quantiles=[0.1, 0.5, 0.9]):
 
         # Compute the quantiles for each observation
         quantile_preds = {}
+        quantile_losses = []
 
         for idx, q in enumerate(quantiles):
-            quantile_preds[q] = predictions[:, idx]
-            q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
+            quantile_preds[str(q)] = predictions[:, idx]
+            q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
 
         # Compute the average of the quantile losses (WQL as an average)
@@ -113,7 +115,7 @@ def run_single_argument(task_id, quantiles=[0.1, 0.5, 0.9]):
     print(task_id)
     print(dataset.name)
     
-    return dset_name, np.mean(times), p.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
+    return dset_name, np.mean(times), np.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
 
 
 if __name__ == "__main__":
@@ -134,8 +136,11 @@ if __name__ == "__main__":
         if not file_exists or os.stat(file_path).st_size == 0:
             writer.writerow(header)  # Write header
 
-        # Write the results to the file
-        writer.writerow(results)
+        # Write the results to the file as a list
+        row_to_write = [results[0], results[1], results[2], results[3], results[4],
+                        results[5], results[6], results[7], results[8], results[9],
+                        results[10], results[11], results[12], results[13],
+                        results[14], results[15], results[16], results[17],
+                        results[18], results[19], results[20]]
 
-    file.write(f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}")
-    file.close()
+        writer.writerow(row_to_write)

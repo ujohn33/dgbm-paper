@@ -2,6 +2,7 @@ import openml
 import os
 import sys
 import json
+import csv
 import numpy as np
 import pandas as pd
 import time
@@ -68,29 +69,14 @@ def encode_categorical_columns(df):
         df[col] = df[col].cat.codes
     return df
 
-def load_data_from_openml(task_id):
-    task = openml.tasks.get_task(task_id)
-    dataset = task.get_dataset()
-    X, y, categorical_indicator, attribute_names = dataset.get_data(
-        dataset_format="dataframe", target=dataset.default_target_attribute
-    )
-    
-    # Encode categorical columns
-    X = encode_categorical_columns(X)
-    
-    return X, y, dataset.name
-
 def run_single_argument(run_seed, quantiles=[0.1, 0.5, 0.9]):
     dset = dataset_list[int(run_seed)]
     args["dataset"] = dset
+    dset_name = dset
     # Load dataset -- use last column as labela
     data = dataset_name_to_loader[args['dataset']]()
-    X, y = data.iloc[:, :-1].values, data.iloc[:, -1].values
-    print(f'Processing the dataset: {dataset.name}')
-    
-    # Encode categorical columns
-    X = encode_categorical_columns(X)
-    y = encode_categorical_series(y)
+    X, y = data.iloc[:, :-1], data.iloc[:, -1]
+    print(f'Processing the dataset: {dset_name}')
 
     # Merge X and y into a single DataFrame, required for AutoGluon
     X['target'] = y  # Ensure 'target' is the string label name
@@ -98,8 +84,7 @@ def run_single_argument(run_seed, quantiles=[0.1, 0.5, 0.9]):
     times, times_HP = [], []
     wql_01, wql_05, wql_09, wql_avg = [], [], [], []
 
-    dset_name = dataset.name
-    print(f"== Task ID={task_id} Dataset={dset_name} X.shape={str(X.shape)}")
+    print(f"== Task ID={run_seed} Dataset={dset_name} X.shape={str(X.shape)}")
 
     if args["dataset"] == "Year Prediciton MSD":
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
@@ -137,14 +122,14 @@ def run_single_argument(run_seed, quantiles=[0.1, 0.5, 0.9]):
     for itr, (train_index, test_index) in enumerate(folds):
         print(f'{dset}: fold {itr + 1}/{len(folds)}')
         #X_train, X_test, y_train, y_test = get_fold(dataset_name, data, fold)
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
+        X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
         runtime_start = time.time()
         # Convert X_train to a TabularDataset
         train_data = TabularDataset(X_train)
         test_data = TabularDataset(X_test)
-        test_data_nolabel = test_data.drop(columns=[label])
+        test_data_nolabel = test_data.drop(columns=['target'])
         
         # Use TabularPredictor to fit the model
         predictor = TabularPredictor(label='target', problem_type='quantile', eval_metric='pinball', quantile_levels=quantiles).fit(train_data, presets='high_quality')
@@ -156,6 +141,7 @@ def run_single_argument(run_seed, quantiles=[0.1, 0.5, 0.9]):
 
         # Compute the quantiles for each observation
         quantile_preds = {}
+        quantile_losses = []
 
         for idx, q in enumerate(quantiles):
             quantile_preds[q] = predictions[:, idx]
@@ -170,8 +156,8 @@ def run_single_argument(run_seed, quantiles=[0.1, 0.5, 0.9]):
         wql_09 += [quantile_losses[2]]
         wql_avg += [wql_avg_fold]
     
-    print(task_id)
-    print(dataset.name)
+    print(run_seed)
+    print(dset_name)
     
     return dset_name, np.mean(times), p.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
 
@@ -193,6 +179,11 @@ if __name__ == "__main__":
         if not file_exists or os.stat(file_path).st_size == 0:
             writer.writerow(header)  # Write header
 
-        row_to_write = f"\n{results[0]}, {results[1]}, {results[2]}, {results[3]}, {results[4]}, {results[5]}, {results[6]}, {results[7]}, {results[8]}, {results[9]}"
-        # Write the results to the file
+        # Write the results to the file as a list
+        row_to_write = [results[0], results[1], results[2], results[3], results[4],
+                        results[5], results[6], results[7], results[8], results[9],
+                        results[10], results[11], results[12], results[13],
+                        results[14], results[15], results[16], results[17],
+                        results[18], results[19], results[20]]
+
         writer.writerow(row_to_write)
