@@ -219,7 +219,7 @@ if __name__ == "__main__":
     print("Task number: " + str(task_number))
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(task_number)
-    filepath = "logs/openml/gpboost.csv"
+    file_path = "logs/openml/gpboost.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

@@ -21,23 +21,23 @@ np.random.seed(123)
 # Set OpenML API key
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
-# Define constants and parameters
-SUITE_ID = 336 # Regression on numerical features
+# Random seed
 np.random.seed(1)
-mode = 'exp'
-natural_flag = True
+
+# Define constants and parameters
 args = {
-    "reps": 3,
+    "mode": 'exp',
+    "natural_grad": False,
+    "stabilization": "MAD",
+    "SUITE_ID": 336, # Regression on numerical features
     "n_est": 2000,
     "n_splits": 5,
     "score": "MLE",
     "distn": "Normal",
-    "base": "tree",
-    "verbose": True,
 }
 
 # Obtain the benchmark suite from OpenML
-benchmark_suite = openml.study.get_suite(SUITE_ID)  # obtain the benchmark suite
+benchmark_suite = openml.study.get_suite(args['SUITE_ID'])  # obtain the benchmark suite
 
 # Define your hyperparameter space
 param_dict = {
@@ -74,7 +74,7 @@ def run_single_argument(task_id):
 
     start_time = time.time()  # Start time measurement
 
-    lgblss = LightGBMLSS(Gaussian(stabilization="None", response_fn=mode, loss_fn="nll", natural_gradient=natural_flag))
+    lgblss = LightGBMLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", natural_gradient=args['natural_grad']))
     lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
 
     np.random.seed(123)
@@ -87,7 +87,7 @@ def run_single_argument(task_id):
 
     print(opt_param)
     opt_params = opt_param.copy()
-    if natural_flag:
+    if args['natural_grad']:
         with open(f'logs/openml/lssboost/natural/exp/{dataset.name}_opt_params.json', 'w') as f:
             json.dump(opt_params, f)
     else:
@@ -200,10 +200,10 @@ if __name__ == "__main__":
     print("______________________")
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     results = run_single_argument(task_number)
-    if natural_flag:
-        file_path = "logs/openml/openml_LSSboost_natural.csv"
+    if args['natural_grad']:
+        file_path = f"logs/openml/openml_LSSboost_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
     else:
-        file_path = "logs/openml/openml_LSSboost_no_natural.csv"
+        file_path = f"logs/openml/openml_LSSboost_no_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

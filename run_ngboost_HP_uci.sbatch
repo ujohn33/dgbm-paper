@@ -1,6 +1,6 @@
 #!/bin/bash
 
-####  SBATCH --output=/dev/null
+#SBATCH --output=./report/%A/slurm-%A_%a.out # STDOUT
 
 #SBATCH --job-name=ngboost_uci
 
@@ -23,12 +23,16 @@
 # And then intall the requirements with
 # pip install -r requirements.txt
 
-module load Python/3.10.4-GCCcore-11.3.0
-module load SciPy-bundle/2022.05-foss-2022a
-module load JupyterHub/3.1.1-GCCcore-11.3.0
+module load Python/3.11.3-GCCcore-12.3.0
+module load IPython/8.14.0-GCCcore-12.3.0
+module load jupyter-server/2.14.0-GCCcore-12.3.0
+module load aiohttp/3.8.5-GCCcore-12.3.0
+module load Optuna/3.5.0-foss-2023a
+module load SciPy-bundle/2023.07-gfbf-2023a
+module load Pillow/10.0.0-GCCcore-12.3.0
 
-source $VSC_DATA/distiboost/bin/activate
+source $VSC_SCRATCH/distiboost_311/bin/activate
 
-cd /data/brussel/105/vsc10528/LSSboost
+cd /scratch/brussel/105/vsc10528/LSSboost
 
 python uci/UCI_ngboost_single_run_optimized.py $SLURM_ARRAY_TASK_ID

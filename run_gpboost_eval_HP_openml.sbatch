@@ -1,6 +1,6 @@
 #!/bin/bash
 
-####  SBATCH --output=/dev/null
+#SBATCH --output=./report/%A/slurm-%A_%a.out # STDOUT
 
 #SBATCH --job-name=gpboost_openml
 
@@ -24,13 +24,15 @@
 # pip install -r requirements.txt
 
 module load Python/3.10.4-GCCcore-11.3.0
+module load IPython/8.5.0-GCCcore-11.3.0
+module load jupyter-server/1.21.0-GCCcore-11.3.0
+module load aiohttp/3.8.3-GCCcore-11.3.0
 module load SciPy-bundle/2022.05-foss-2022a
 module load scikit-learn/1.1.2-foss-2022a
-module load JupyterHub/3.1.1-GCCcore-11.3.0
 module load Pillow/9.1.1-GCCcore-11.3.0
 
-source $VSC_DATA/distiboost/bin/activate
+source $VSC_SCRATCH/distiboost/bin/activate
 
-cd /data/brussel/105/vsc10528/LSSboost
+cd /scratch/brussel/105/vsc10528/LSSboost
 
 python openml/openml_gpboost_HP_single_run.py $SLURM_ARRAY_TASK_ID

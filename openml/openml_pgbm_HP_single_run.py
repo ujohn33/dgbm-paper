@@ -33,16 +33,15 @@ n_forecasts = 200
 
 # Hardcoded parameters for testing
 args = {
-    "dataset": "Concrete Compression Strength",
-    "n_splits": 20,
     "distn": "Normal",
-    "verbose": True,
-    "verbose_eval":1,
-    "random_state":1
+    "SUITE_ID": 336, # Regression on numerical features
+    "n_splits": 5,
+    "score": "MLE",
 }
 
+
 # Obtain the benchmark suite from OpenML
-benchmark_suite = openml.study.get_suite(SUITE_ID) 
+benchmark_suite = openml.study.get_suite(args["SUITE_ID"]) 
 
 def encode_categorical_series(y):
     # Check if the series is of type 'category' or 'object' (strings)
@@ -204,7 +203,7 @@ if __name__ == "__main__":
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(task_number)
-    filepath = "logs/openml/openml_PBGM.csv"
+    file_path = "logs/openml/openml_PBGM.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

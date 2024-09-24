@@ -1,6 +1,6 @@
 #!/bin/bash
 
-####  SBATCH --output=/dev/null
+#SBATCH --output=./report/%A/slurm-%A_%a.out # STDOUT
 
 #SBATCH --job-name=autogluon_openml
 
@@ -23,14 +23,16 @@
 # And then intall the requirements with
 # pip install -r requirements.txt
 
-module load Python/3.10.4-GCCcore-11.3.0
-module load SciPy-bundle/2022.05-foss-2022a
-module load scikit-learn/1.1.2-foss-2022a
-module load JupyterHub/3.1.1-GCCcore-11.3.0
-module load Pillow/9.1.1-GCCcore-11.3.0
+module load Python/3.11.3-GCCcore-12.3.0
+module load IPython/8.14.0-GCCcore-12.3.0
+module load jupyter-server/2.14.0-GCCcore-12.3.0
+module load aiohttp/3.8.5-GCCcore-12.3.0
+module load SciPy-bundle/2023.07-gfbf-2023a
+module load scikit-learn/1.4.2-gfbf-2023a
+module load Pillow/10.0.0-GCCcore-12.3.0
 
-source $VSC_DATA/distriboost_auto/bin/activate
+source $VSC_DATA/auto/bin/activate
 
-cd /data/brussel/105/vsc10528/LSSboost
+cd /scratch/brussel/105/vsc10528/LSSboost
 
 python openml/openml_autogluon_HP_single_run.py $SLURM_ARRAY_TASK_ID

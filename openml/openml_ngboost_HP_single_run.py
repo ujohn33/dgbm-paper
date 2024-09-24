@@ -2,7 +2,6 @@ import os
 import sys
 import openml
 import json
-from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 import time
@@ -16,7 +15,6 @@ from ngboost.scores import LogScore
 from ngboost import NGBRegressor
 from ngboost.learners import default_linear_learner, default_tree_learner
 import optuna
-from properscoring._mean_crps import _mean_crps_hersbach
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
@@ -26,22 +24,17 @@ np.random.seed(123)
 # Set OpenML API key
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
-# Define constants and parameters
-SUITE_ID = 336  # Regression on numerical features
+# Random seed
 np.random.seed(1)
-mode = 'exp'
-natural_flag = True
+
+# Define constants and parameters
 args = {
-    "reps": 3,
-    "n_est": 2000,
     "n_splits": 5,
     "score": "LogScore",
     "distn": "Normal",
-    "base": "tree",
-    "lr": 0.01,
-    "natural": True,
+    "SUITE_ID": 336,  # Regression on numerical features 
+    "natural_grad": True,
     "verbose": True,
-    "verbose_eval": 1,
     "random_state": 1
 }
 
@@ -51,7 +44,7 @@ b3 = DecisionTreeRegressor(criterion='squared_error', max_depth=4)
 base_learner_choices = [b1, b2, b3]
 
 # Obtain the benchmark suite from OpenML
-benchmark_suite = openml.study.get_suite(SUITE_ID)  # obtain the benchmark suite
+benchmark_suite = openml.study.get_suite(args['SUITE_ID'])  # obtain the benchmark suite
 
 def encode_categorical_columns(df):
     for col in df.select_dtypes(include=['category']).columns:
@@ -71,7 +64,7 @@ def objective(trial, X, y):
         Score=LogScore,
         n_estimators=n_estimators,
         learning_rate=lr,
-        natural_gradient=args["natural"],
+        natural_gradient=args["natural_grad"],
         minibatch_frac=minibatch_frac,
         verbose=args["verbose"],
     )
@@ -99,7 +92,7 @@ def objective(trial, X, y):
             Score=LogScore,
             n_estimators=n_estimators,
             learning_rate=lr,
-            natural_gradient=args["natural"],
+            natural_gradient=args["natural_grad"],
             minibatch_frac=minibatch_frac,
             verbose=args["verbose"],
         )
@@ -146,7 +139,7 @@ def run_single_argument(task_id):
 
     opt_params = study.best_params
     
-    if natural_flag:
+    if args['natural_grad']:
         with open(f'logs/openml/ngboost/natural/exp/{dataset.name}_opt_params.json', 'w') as f:
             json.dump(opt_params, f)
     else:
@@ -167,7 +160,7 @@ def run_single_argument(task_id):
             Score=LogScore,
             n_estimators=opt_params["n_estimators"],
             learning_rate=opt_params["lr"],
-            natural_gradient=args["natural"],
+            natural_gradient=args["natural_grad"],
             minibatch_frac=opt_params["minibatch_frac"],
             verbose=args["verbose"],
         )
@@ -191,7 +184,7 @@ def run_single_argument(task_id):
             Score=LogScore,
             n_estimators=opt_params["n_estimators"],
             learning_rate=opt_params["lr"],
-            natural_gradient=args["natural"],
+            natural_gradient=args["natural_grad"],
             minibatch_frac=opt_params["minibatch_frac"],
             verbose=args["verbose"],
         )
@@ -281,10 +274,10 @@ if __name__ == "__main__":
     print("______________________")
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     results = run_single_argument(task_number)
-    if natural_flag:
-        filepath = "logs/openml/openml_NGBoost_natural.csv"
+    if args['natural_grad']:
+        file_path = "logs/openml/openml_NGBoost_natural.csv"
     else:
-        filepath = "logs/openml/openml_NGBoost_no_natural.csv"
+        file_path = "logs/openml/openml_NGBoost_no_natural.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

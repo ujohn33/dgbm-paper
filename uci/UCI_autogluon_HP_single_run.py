@@ -71,10 +71,9 @@ def encode_categorical_columns(df):
 
 def run_single_argument(run_seed, quantiles=[0.1, 0.5, 0.9]):
     dset = dataset_list[int(run_seed)]
-    args["dataset"] = dset
     dset_name = dset
     # Load dataset -- use last column as labela
-    data = dataset_name_to_loader[args['dataset']]()
+    data = dataset_name_to_loader[dset]()
     X, y = data.iloc[:, :-1], data.iloc[:, -1]
     print(f'Processing the dataset: {dset_name}')
 
@@ -86,9 +85,9 @@ def run_single_argument(run_seed, quantiles=[0.1, 0.5, 0.9]):
 
     print(f"== Task ID={run_seed} Dataset={dset_name} X.shape={str(X.shape)}")
 
-    if args["dataset"] == "Year Prediciton MSD":
+    if dset == "Year Prediciton MSD":
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
-    elif args["dataset"] == "Protein Structure":
+    elif dset == "Protein Structure":
         kf = KFold(n_splits=5)
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
@@ -181,9 +180,6 @@ if __name__ == "__main__":
 
         # Write the results to the file as a list
         row_to_write = [results[0], results[1], results[2], results[3], results[4],
-                        results[5], results[6], results[7], results[8], results[9],
-                        results[10], results[11], results[12], results[13],
-                        results[14], results[15], results[16], results[17],
-                        results[18], results[19], results[20]]
+                        results[5], results[6], results[7], results[8], results[9]]
 
         writer.writerow(row_to_write)
