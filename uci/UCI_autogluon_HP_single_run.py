@@ -131,7 +131,7 @@ def run_single_argument(run_seed, quantiles=[0.1, 0.5, 0.9]):
         test_data_nolabel = test_data.drop(columns=['target'])
         
         # Use TabularPredictor to fit the model
-        predictor = TabularPredictor(label='target', problem_type='quantile', eval_metric='pinball', quantile_levels=quantiles).fit(train_data, presets='high_quality')
+        predictor = TabularPredictor(label='target', problem_type='quantile', eval_metric='pinball', quantile_levels=quantiles).fit(train_data, presets='high_quality', save_bag_folds=False, save_space=True)
 
         runtime_pred = time.time() - runtime_start
 
@@ -150,6 +150,7 @@ def run_single_argument(run_seed, quantiles=[0.1, 0.5, 0.9]):
         # Compute the average of the quantile losses (WQL as an average)
         wql_avg_fold = np.mean(quantile_losses)
 
+        times += [runtime_pred]
         wql_01 += [quantile_losses[0]]
         wql_05 += [quantile_losses[1]]
         wql_09 += [quantile_losses[2]]
@@ -158,7 +159,7 @@ def run_single_argument(run_seed, quantiles=[0.1, 0.5, 0.9]):
     print(run_seed)
     print(dset_name)
     
-    return dset_name, np.mean(times), p.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
+    return dset_name, np.mean(times), np.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
 
 
 if __name__ == "__main__":
@@ -166,7 +167,7 @@ if __name__ == "__main__":
     print("______________________")
     results = run_single_argument(sys.argv[1])
 
-    file_path = "logs/openml/openml_autogluon.csv"
+    file_path = "logs/uci/uci_autogluon.csv"
     header = ["dset","time_run","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

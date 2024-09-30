@@ -1,16 +1,16 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_XGLSSboost_openml/slurm-%A_%a.out # STDOUT
+#SBATCH --output=./report/%A_pgbm_uci/slurm-%A_%a.out # STDOUT
 
-#SBATCH --job-name=XGLSSboost_uci
+#SBATCH --job-name=PBGM_uci
 
-#SBATCH --time=1-12:00:00
+#SBATCH --time=2-00:00:00
 
 #SBATCH --ntasks-per-node=1
 
 #SBATCH --partition=skylake,skylake_mpi
 
-#SBATCH --mem-per-cpu=40G
+#SBATCH --mem-per-cpu=60G
 
 #####SBATCH --array=0-9
 #SBATCH --array=0-9
@@ -35,4 +35,4 @@ source $VSC_SCRATCH/distiboost_311/bin/activate
 
 cd /scratch/brussel/105/vsc10528/LSSboost
 
-python uci/UCI_xglssboost_HP_single_run.py $SLURM_ARRAY_TASK_ID
+python uci/UCI_pgbm_HP_single_run.py $SLURM_ARRAY_TASK_ID

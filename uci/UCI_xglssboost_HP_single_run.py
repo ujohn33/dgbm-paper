@@ -16,8 +16,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
 
 np.random.seed(123)
-mode = 'exp'
-natural_flag = True
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -55,16 +53,14 @@ dataset_list = ["Boston Housing", "Concrete Compression Strength", "Energy Effic
 
 # Hardcoded parameters for testing
 args = {
-    "dataset": "Concrete Compression Strength",
-    "reps": 3,
+    "dataset": None,
+    "mode": 'exp',
+    "natural_grad": False,
+    "stabilization": 'MAD', # None, 'L2', "MAD"    
     "n_est": 2000,
     "n_splits": 20,
     "score": "MLE",
     "distn": "Normal",
-    "base": "tree",
-    "verbose": True,
-    "verbose_eval":1,
-    "random_state":1
 }
 
 # Define your hyperparameter space
@@ -147,7 +143,7 @@ def run_single_arguement(run_seed):
         full_train_data = xgb.DMatrix(X_trainall, label=y_trainall)
 
         start_time = time.time()
-        xgblss = XGBoostLSS(Gaussian(stabilization="None", response_fn="exp", loss_fn="nll", natural_gradient=natural_flag))
+        xgblss = XGBoostLSS(Gaussian(stabilization=args["stabilization"], response_fn=args['mode'], loss_fn="nll", natural_gradient=args['natural_grad']))
         # Modify start values     
         xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
@@ -260,10 +256,10 @@ def run_single_arguement(run_seed):
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
-    if natural_flag:
-        file_path = "logs/uci/XGLSSboost_natural.csv"
+    if args['natural_grad']:
+        file_path = f"logs/uci/uci_XGLSSboost_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
     else:
-        file_path = "logs/uci/XGLSSboost_no_natural.csv"
+        file_path = f"logs/uci/uci_XGLSSboost_no_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

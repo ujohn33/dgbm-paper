@@ -16,8 +16,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
 
 np.random.seed(123)
-mode = 'exp'
-natural_flag = True
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -55,14 +53,13 @@ dataset_list = ["Boston Housing", "Concrete Compression Strength", "Energy Effic
 
 # Hardcoded parameters for testing
 args = {
-    "dataset": "Concrete Compression Strength",
-    "reps": 3,
+    "mode": 'exp',
+    "natural_grad": False,
+    "stabilization": 'MAD', # None, 'L2', "MAD"    
     "n_est": 2000,
     "n_splits": 20,
     "score": "MLE",
     "distn": "Normal",
-    "base": "tree",
-    "verbose": True,
 }
 
 # Define your hyperparameter space
@@ -79,19 +76,18 @@ param_dict = {
 
 def run_single_arguement(run_seed):
     dset = dataset_list[int(run_seed)]
-    args["dataset"] = dset
     lss_rmse, lss_nll, times, times_HP = [], [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
     wql_01, wql_05, wql_09, wql_avg = [], [], [], []
 
     # Load dataset -- use last column as labela
-    data = dataset_name_to_loader[args['dataset']]()
+    data = dataset_name_to_loader[dset]()
     X, y = data.iloc[:, :-1].values, data.iloc[:, -1].values
 
-    print(f"== Dataset={args['dataset']} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
-    if args["dataset"] == "Year Prediciton MSD":
+    print(f"== Dataset={dset} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
+    if dset == "Year Prediciton MSD":
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
-    elif args["dataset"] == "Protein Structure":
+    elif dset == "Protein Structure":
         kf = KFold(n_splits=5)
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
@@ -113,11 +109,11 @@ def run_single_arguement(run_seed):
         #     "min_data_in_leaf":         22,
         #     "subsample":                1,
         # }
-        if args["dataset"] == "Concrete Compression Strength":
+        if dset == "Concrete Compression Strength":
             args["n_est"] = 5000
-        elif args["dataset"] == "Energy Efficiency":
+        elif dset == "Energy Efficiency":
             args["n_est"] = 5000
-        elif args["dataset"] == "Boston Housing":
+        elif dset == "Boston Housing":
             args["n_est"] = 5000
         else:
             pass
@@ -154,10 +150,10 @@ def run_single_arguement(run_seed):
 
         start_time = time.time()
         lgblss = LightGBMLSS(
-            Gaussian(stabilization="None",
-                    response_fn = mode,
+            Gaussian(stabilization=args['stabilization'],
+                    response_fn = args['mode'],
                     loss_fn = "nll",
-                    natural_gradient = natural_flag)
+                    natural_gradient = args['natural_grad'])
         )
         # Modify start values     
         lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
@@ -271,10 +267,10 @@ def run_single_arguement(run_seed):
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
-    if natural_flag:
-        file_path = "logs/uci/LSSboost_natural.csv"
+    if args['natural_grad']:
+        file_path = f"logs/uci/uci_LSSboost_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
     else:
-        file_path = "logs/uci/LSSboost_no_natural.csv"
+        file_path = f"logs/uci/uci_LSSboost_no_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

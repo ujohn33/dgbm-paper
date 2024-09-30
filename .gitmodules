@@ -10,3 +10,6 @@
 [submodule "pgbm"]
 	path = pgbm
 	url = git@github.com:elephaint/pgbm.git
+[submodule "autogluon"]
+	path = autogluon
+	url = git@github.com:autogluon/autogluon.git

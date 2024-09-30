@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A/slurm-%A_%a.out # STDOUT
+#SBATCH --output=./report/%A_autogluon_openml/slurm-%A_%a.out # STDOUT
 
 #SBATCH --job-name=autogluon_openml
 

@@ -26,8 +26,8 @@ np.random.seed(1)
 args = {
     "SUITE_ID": 336, # Regression on numerical features
     "mode": 'exp',
-    "stabilization": "MAD", #"MAD", "L2", None
-    "natural_grad": False, #True, False
+    "stabilization": 'None', #"MAD", "L2", None
+    "natural_grad": True, #True, False
     "n_est": 2000,
     "n_splits": 5,
     "score": "MLE",

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A/slurm-%A_%a.out # STDOUT
+#SBATCH --output=./report/%A_ngboost_uci/slurm-%A_%a.out # STDOUT
 
 #SBATCH --job-name=ngboost_uci
 
@@ -30,6 +30,7 @@ module load aiohttp/3.8.5-GCCcore-12.3.0
 module load Optuna/3.5.0-foss-2023a
 module load SciPy-bundle/2023.07-gfbf-2023a
 module load Pillow/10.0.0-GCCcore-12.3.0
+module load openpyxl/3.1.2-GCCcore-12.3.0
 
 source $VSC_SCRATCH/distiboost_311/bin/activate
 

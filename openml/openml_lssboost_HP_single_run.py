@@ -27,8 +27,8 @@ np.random.seed(1)
 # Define constants and parameters
 args = {
     "mode": 'exp',
-    "natural_grad": False,
-    "stabilization": "MAD",
+    "natural_grad": True,
+    "stabilization": 'None', # None, 'L2', "MAD"
     "SUITE_ID": 336, # Regression on numerical features
     "n_est": 2000,
     "n_splits": 5,

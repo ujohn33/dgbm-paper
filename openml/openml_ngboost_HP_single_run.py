@@ -222,7 +222,7 @@ def run_single_argument(task_id):
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[str(q)] = norm.ppf(q, loc=forecast['loc'], scale=forecast['scale'])
+            quantile_preds[str(q)] = norm.ppf(q, loc=forecast.loc, scale=forecast.scale)
             q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
         
@@ -240,12 +240,12 @@ def run_single_argument(task_id):
                     fold,
                     n_folds,
                     np.sqrt(val_rmse[0]),
-                    np.sqrt(mean_squared_error(y_test, y_test_pred)),
+                    np.sqrt(lss_rmse[-1]),
                     lss_nll[-1],
                     lss_crps[-1],
                     lss_crps_cal[-1],
                     lss_crps_sha[-1],
-                    elapsed_time_HP,
+                    runtime_pred,
                 )
             )
 

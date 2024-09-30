@@ -89,7 +89,7 @@ def run_single_argument(task_id, quantiles=[0.1, 0.5, 0.9]):
         test_data_nolabel = test_data.drop(columns=['target'])
         
         # Use TabularPredictor to fit the model
-        predictor = TabularPredictor(label='target', problem_type='quantile', eval_metric='pinball', quantile_levels=quantiles).fit(train_data, presets='high_quality')
+        predictor = TabularPredictor(label='target', problem_type='quantile', eval_metric='pinball', quantile_levels=quantiles).fit(train_data, presets='high_quality', save_bag_folds=False, save_space=True)
 
         runtime_pred = time.time() - runtime_start
 
@@ -112,6 +112,7 @@ def run_single_argument(task_id, quantiles=[0.1, 0.5, 0.9]):
         wql_05 += [quantile_losses[1]]
         wql_09 += [quantile_losses[2]]
         wql_avg += [wql_avg_fold]
+        times += [runtime_pred]
     
     print(task_id)
     print(dataset.name)

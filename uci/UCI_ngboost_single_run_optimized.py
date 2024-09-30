@@ -1,6 +1,7 @@
 import os
 import sys
 import csv
+import json
 from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
@@ -8,6 +9,7 @@ import time
 from scipy.stats import norm as norm_dist
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
+from sklearn.tree import DecisionTreeRegressor
 from ngboost.distns import Bernoulli, Normal
 from ngboost.scores import LogScore
 from ngboost import NGBRegressor
@@ -63,12 +65,16 @@ args = {
     "n_splits": 20,
     "distn": "Normal",
     "lr": 0.01,
-    "natural": True,
+    "natural_grad": True,
     "score": "LogScore",
-    "base": "tree",
     "minibatch_frac": 1.0,
     "verbose": True,
 }
+
+b1 = DecisionTreeRegressor(criterion='squared_error', max_depth=2)
+b2 = DecisionTreeRegressor(criterion='squared_error', max_depth=3)
+b3 = DecisionTreeRegressor(criterion='squared_error', max_depth=4)
+base_learner_choices = [b1, b2, b3]
 
 
 def run_single_arguement(run_seed):
@@ -136,19 +142,19 @@ def run_single_arguement(run_seed):
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))
 
-    if natural_flag:
-        pset_path = f'logs/ngboost/natural/exp/{dataset.name}_opt_params.json'
-        # Check if the file exists
-        if not os.path.isfile(pset_path):
-            raise FileNotFoundError(f"The JSON file {pset_path} does not exist.")
-        # Check if the file is empty
-        if os.path.getsize(pset_path) == 0:
-            raise ValueError(f"The JSON file {pset_path} is empty.")
-        with open(pset_path) as pset:
-            opt_params = json.load(pset)
-    else:
-        with open(f'logs/ngboost/normal/exp/{dataset.name}_opt_params.json') as pset:
-            opt_params = json.load(pset)
+    # if args['natural_grad']:
+    #     pset_path = f'logs/ngboost/natural/exp/{dset}_opt_params.json'
+    #     # Check if the file exists
+    #     if not os.path.isfile(pset_path):
+    #         raise FileNotFoundError(f"The JSON file {pset_path} does not exist.")
+    #     # Check if the file is empty
+    #     if os.path.getsize(pset_path) == 0:
+    #         raise ValueError(f"The JSON file {pset_path} is empty.")
+    #     with open(pset_path) as pset:
+    #         opt_params = json.load(pset)
+    # else:
+    #     with open(f'logs/ngboost/normal/exp/{dset}_opt_params.json') as pset:
+    #         opt_params = json.load(pset)
 
     for itr, (train_index, test_index) in enumerate(folds):
         # print('train_index: ')
@@ -172,7 +178,7 @@ def run_single_arguement(run_seed):
             Score=eval(args["score"]),
             n_estimators=opt_params["n_estimators"],
             learning_rate=opt_params["lr"],
-            natural_gradient=args["natural"],
+            natural_gradient=args["natural_grad"],
             minibatch_frac=opt_params["minibatch_frac"],
             verbose=args["verbose"],
         )
@@ -191,12 +197,12 @@ def run_single_arguement(run_seed):
 
         # re-train using all the data after tuning number of iterations
         ngb = NGBRegressor(
-            Base=base_name_to_learner[args["base"]],
+            Base=base_learner_choices[opt_params["Base"]],
             Dist=eval(args["distn"]),
             Score=eval(args["score"]),
             n_estimators=opt_params["n_estimators"],
             learning_rate=args["lr"],
-            natural_gradient=args["natural"],
+            natural_gradient=args["natural_grad"],
             minibatch_frac=args["minibatch_frac"],
             verbose=args["verbose"],
         )
@@ -286,7 +292,10 @@ def run_single_arguement(run_seed):
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
-    file_path = "logs/uci/ngboost_with_wql.csv"
+    if args['natural_grad']:
+        file_path = "logs/uci/uci_ngboost_with_wql_natural.csv"
+    else:
+        file_path = "logs/uci/uci_ngboost_with_wql_normal.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)
