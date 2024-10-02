@@ -55,7 +55,7 @@ dataset_list = ["Boston Housing", "Concrete Compression Strength", "Energy Effic
 args = {
     "mode": 'exp',
     "natural_grad": False,
-    "stabilization": 'MAD', # None, 'L2', "MAD"    
+    "stabilization": 'L2', # None, 'L2', "MAD"    
     "n_est": 2000,
     "n_splits": 20,
     "score": "MLE",

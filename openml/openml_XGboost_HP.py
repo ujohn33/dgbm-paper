@@ -5,9 +5,14 @@ import json
 import csv
 import numpy as np
 import pandas as pd
+import xgboost as xgb
 import time
-from autogluon.tabular import TabularDataset, TabularPredictor
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold
+from optuna.integration import OptunaSearchCV
+from sklearn.metrics import mean_pinball_loss
+import optuna
+
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import quantile_loss
@@ -18,16 +23,31 @@ np.random.seed(123)
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
 # Define constants and parameters
-SUITE_ID = 336 # Regression on numerical features
 MODEl_PATH = os.environ['VSC_SCRATCH'] + '/LSSboost/'
 np.random.seed(1)
-mode = 'exp'
 natural_flag = False
-n_forecasts = 100
-distn = "Normal"
+
+# Define constants and parameters
+args = {
+    "quantiles": [0.1, 0.5, 0.9],
+    "SUITE_ID": 336, # Regression on numerical features
+    "n_splits": 5,
+    "n_trials": 100,
+    "n_est": 2000,
+}
 
 # Obtain the benchmark suite from OpenML
-benchmark_suite = openml.study.get_suite(SUITE_ID)  # obtain the benchmark suite
+benchmark_suite = openml.study.get_suite(args["SUITE_ID"])  # obtain the benchmark suite
+
+# Define hyperparameter search space
+param_distributions = {
+    "eta": optuna.distributions.FloatDistribution(1e-5, 0.4, log=True),
+    "max_depth": optuna.distributions.IntDistribution(2, 10),
+    "num_leaves": optuna.distributions.IntDistribution(20, 200),
+    "min_data_in_leaf": optuna.distributions.IntDistribution(20, 100),
+    "bagging_fraction": optuna.distributions.FloatDistribution(0.5, 1, log=False),
+    "feature_pre_filter": optuna.distributions.CategoricalDistribution([False])
+}
 
 def encode_categorical_series(y):
     # Check if the series is of type 'category' or 'object' (strings)
@@ -55,23 +75,55 @@ def load_data_from_openml(task_id):
 def run_single_argument(task_id, quantiles=[0.1, 0.5, 0.9]):
     task = openml.tasks.get_task(task_id)  # download the OpenML task
     dataset = task.get_dataset()
+    dset_name = dataset.name
+
     X, y, categorical_indicator, attribute_names = dataset.get_data(
         dataset_format="dataframe", target=dataset.default_target_attribute
     )
     print(f'Processing the dataset: {dataset.name}')
     
-    # Encode categorical columns
-    X = encode_categorical_columns(X)
-    y = encode_categorical_series(y)
-
-    # Merge X and y into a single DataFrame, required for AutoGluon
-    X['target'] = y  # Ensure 'target' is the string label name
-    
-    times, times_HP = [], []
+    times = []
     wql_01, wql_05, wql_09, wql_avg = [], [], [], []
 
-    dset_name = dataset.name
-    print(f"== Task ID={task_id} Dataset={dset_name} X.shape={str(X.shape)}")
+    print(f"== Task ID={task_id} Dataset={dataset.name} X.shape={str(X.shape)}")
+
+    n_repeats, n_folds, n_samples = task.get_split_dimensions()
+    print(f"Task {task_id}: number of repeats: {n_repeats}, number of folds: {n_folds}, number of samples {n_samples}.")
+
+    # Perform hyperparameter optimization on the first fold
+    train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=0, sample=0)
+    X_train_opt, X_test_opt = X.iloc[train_indices], X.iloc[test_indices]
+    y_train_opt, y_test_opt = y.iloc[train_indices], y.iloc[test_indices]
+
+    dtrain = lgb.Dataset(X_train_opt, y_train_opt)
+
+    start_time = time.time()  # Start time measurement
+
+    # Define the LightGBM regressor
+    estimator = lgb.LGBMRegressor(objective="quantile", alpha=0.5, random_state=1, n_estimators=args["n_est"])
+
+    # Define cross-validation
+    cv = KFold(n_splits=args['n_splits'], shuffle=True, random_state=1)
+
+    # Use OptunaSearchCV for hyperparameter optimization
+    optuna_search = OptunaSearchCV(
+        estimator=estimator,
+        param_distributions=param_distributions,
+        cv=cv,
+        n_trials=args['n_trials'],
+        refit=True,
+        random_state=1,
+        verbose=1
+    )
+
+    # Fit OptunaSearchCV with cross-validation
+    optuna_search.fit(X_train_opt, y_train_opt)
+
+    time_HP = time.time() - start_time
+
+    # Get the best parameters
+    best_params = optuna_search.best_params_
+    print(f"Best parameters: {best_params}")
 
     n_repeats, n_folds, n_samples = task.get_split_dimensions()
     print(f"Task {task_id}: number of repeats: {n_repeats}, number of folds: {n_folds}, number of samples {n_samples}.")
@@ -79,31 +131,32 @@ def run_single_argument(task_id, quantiles=[0.1, 0.5, 0.9]):
     # Evaluate the optimized parameters on the remaining folds
     for fold in range(1, n_folds):
         train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=fold, sample=0)
-        X_train, X_test = X.iloc[train_indices], X.iloc[test_indices]
-        y_train, y_test = y.iloc[train_indices], y.iloc[test_indices]
+        X_train_fold, X_test_fold = X.iloc[train_indices], X.iloc[test_indices]
+        y_train_fold, y_test_fold = y.iloc[train_indices], y.iloc[test_indices]
+
+        quantile_models = {}
+        quantile_preds = {}
+        quantile_losses = []
         
         runtime_start = time.time()
-        # Convert X_train to a TabularDataset
-        train_data = TabularDataset(X_train)
-        test_data = TabularDataset(X_test)
-        test_data_nolabel = test_data.drop(columns=['target'])
-        
-        # Use TabularPredictor to fit the model
-        predictor = TabularPredictor(label='target', problem_type='quantile', eval_metric='pinball', quantile_levels=quantiles).fit(train_data, presets='high_quality', save_bag_folds=False, save_space=True)
+
+        # Train separate models for each quantile (0.1, 0.5, 0.9)
+        for count, q in enumerate(args["quantiles"]):
+            model = lgb.LGBMRegressor(**best_params, objective="quantile", alpha=q, random_state=1)
+            model.fit(X_train_fold, y_train_fold)
+            quantile_models[q] = model
 
         runtime_pred = time.time() - runtime_start
 
-        predictions = predictor.predict(test_data_nolabel)
-        predictions = predictions.to_numpy()
-
-        # Compute the quantiles for each observation
-        quantile_preds = {}
-        quantile_losses = []
-
-        for idx, q in enumerate(quantiles):
-            quantile_preds[str(q)] = predictions[:, idx]
-            q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
-            quantile_losses.append(q_loss)
+        for q in args["quantiles"]:
+            q_pred = quantile_models[q].predict(X_test_fold)
+            q_loss = quantile_loss(q, y_test_fold, q_pred)
+            if q == 0.1:
+                quantile_losses.append(q_loss)
+            elif q == 0.5:
+                quantile_losses.append(q_loss)
+            else:
+                quantile_losses.append(q_loss)
 
         # Compute the average of the quantile losses (WQL as an average)
         wql_avg_fold = np.mean(quantile_losses)
@@ -121,12 +174,12 @@ def run_single_argument(task_id, quantiles=[0.1, 0.5, 0.9]):
 
 
 if __name__ == "__main__":
-    print("AUTOGLUON")
+    print("LGBM quantiles")
     print("______________________")
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     results = run_single_argument(task_number)
 
-    file_path = "logs/openml/openml_autogluon.csv"
+    file_path = "logs/openml/openml_lgbm.csv"
     header = ["dset","time_run","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)
