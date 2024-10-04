@@ -27,7 +27,7 @@ args = {
     "SUITE_ID": 336, # Regression on numerical features
     "mode": 'exp',
     "stabilization": 'L2', #"MAD", "L2", None
-    "natural_grad": True, #True, False
+    "natural_grad": False, #True, False
     "n_est": 2000,
     "n_splits": 5,
     "score": "MLE",

@@ -24,11 +24,20 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 # Random seed
 np.random.seed(1)
 
+# Get command-line arguments
+if len(sys.argv) != 5:
+    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization>")
+    sys.exit(1)
+
+mode = sys.argv[2]  # e.g., 'exp'
+natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
+stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
+
 # Define constants and parameters
 args = {
-    "mode": 'exp',
-    "natural_grad": True,
-    "stabilization": 'L2', # None, 'L2', "MAD"
+    "mode": mode,
+    "natural_grad": natural_grad,
+    "stabilization": stabilization, # None, 'L2', "MAD"
     "SUITE_ID": 336, # Regression on numerical features
     "n_est": 2000,
     "n_splits": 5,
@@ -43,9 +52,10 @@ benchmark_suite = openml.study.get_suite(args['SUITE_ID'])  # obtain the benchma
 param_dict = {
     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
-    "num_leaves": ["int", {"low": 20, "high": 200, "log": False}],  # Constant for this example
+    "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
-    "feature_pre_filter": ["categorical", [False]]
+    "feature_pre_filter": ["categorical", [False]],
+    "histogram_pool_size": ["categorical", [56320]],
 }
 
 def run_single_argument(task_id):
