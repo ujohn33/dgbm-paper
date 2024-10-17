@@ -17,6 +17,15 @@ from utils.metrics import crps, quantile_loss
 
 np.random.seed(123)
 
+# Get command-line arguments
+if len(sys.argv) != 5:
+    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization>")
+    sys.exit(1)
+
+mode = sys.argv[2]  # e.g., 'exp'
+natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
+stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None
+
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
         "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data",
@@ -54,9 +63,9 @@ dataset_list = ["Boston Housing", "Concrete Compression Strength", "Energy Effic
 # Hardcoded parameters for testing
 args = {
     "dataset": None,
-    "mode": 'exp',
-    "natural_grad": True,
-    "stabilization": 'L2', # None, 'L2', "MAD"    
+    "mode": mode,
+    "natural_grad": natural_grad,
+    "stabilization": stabilization, # None, 'L2', "MAD"    
     "n_est": 2000,
     "n_splits": 20,
     "score": "MLE",
@@ -111,20 +120,20 @@ def run_single_arguement(run_seed):
             args["n_est"] = 2000
         else:
             pass
-    kf = KFold(n_splits=args["n_splits"])
-    folds = kf.split(X)
-    # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
-    n = X.shape[0]
-    np.random.seed(1)
-    folds = []
-    for i in range(args['n_splits']):
-        permutation = np.random.choice(range(n), n, replace=False)
-        end_train = round(n * 9.0 / 10)
-        end_test = n
+        kf = KFold(n_splits=args["n_splits"])
+        folds = kf.split(X)
+        # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
+        n = X.shape[0]
+        np.random.seed(1)
+        folds = []
+        for i in range(args['n_splits']):
+            permutation = np.random.choice(range(n), n, replace=False)
+            end_train = round(n * 9.0 / 10)
+            end_test = n
 
-        train_index = permutation[0:end_train]
-        test_index = permutation[end_train:n]
-        folds.append((train_index, test_index))
+            train_index = permutation[0:end_train]
+            test_index = permutation[end_train:n]
+            folds.append((train_index, test_index))
 
 
     for itr, (train_index, test_index) in enumerate(folds):
@@ -148,7 +157,7 @@ def run_single_arguement(run_seed):
         xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
         opt_param = xgblss.hyper_opt(param_dict, full_train_data, num_boost_round=args["n_est"],
-                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=300, n_trials=20,
+                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=20,
                                     silence=True, seed=1, hp_seed=1)
         opt_params = opt_param.copy()
 

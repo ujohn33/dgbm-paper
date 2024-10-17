@@ -22,12 +22,21 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
 np.random.seed(1)
 
+# Get command-line arguments
+if len(sys.argv) != 5:
+    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization>")
+    sys.exit(1)
+
+mode = sys.argv[2]  # e.g., 'exp'
+natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
+stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
+
 # Define constants and parameters
 args = {
     "SUITE_ID": 336, # Regression on numerical features
-    "mode": 'exp',
-    "stabilization": 'L2', #"MAD", "L2", None
-    "natural_grad": False, #True, False
+    "mode": mode,
+    "stabilization": stabilization, #"MAD", "L2", None
+    "natural_grad": natural_grad, #True, False
     "n_est": 2000,
     "n_splits": 5,
     "score": "MLE",

@@ -164,7 +164,7 @@ def run_single_argument(run_seed):
         print('Hyperparameter tuning...')
         study = optuna.create_study(direction='maximize')
         objective_tuning = Objective(X_train, y_train)
-        study.optimize(objective_tuning, n_trials=20)
+        study.optimize(objective_tuning, n_trials=20, timeout=86400)
         end_time = time.time()  # End time measurement
         elapsed_time_HP = end_time - start_time  # Calculate elapsed time
 

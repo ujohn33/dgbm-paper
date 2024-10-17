@@ -160,7 +160,7 @@ def run_single_arguement(run_seed):
     print(f"== Dataset={args['dataset']} X.shape={str(X.shape)} {args['score']}/{args['distn']}")
 
     study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner())
-    study.optimize(objective, n_trials=20, timeout=3000*60)
+    study.optimize(objective, n_trials=20, timeout=86400)
 
     print("Best hyperparameters: ", study.best_params)
 

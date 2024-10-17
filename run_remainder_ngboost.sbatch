@@ -1,19 +1,18 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_pgbm_uci/slurm-%A_%a.out # STDOUT
-
-#SBATCH --job-name=PBGM_uci
-
-#SBATCH --time=2-00:00:00
-
-#SBATCH --ntasks-per-node=1
+#SBATCH --output=./report/%A_ngboost_openml/slurm-%A_%a.out # STDOUT
 
 #SBATCH --partition=skylake,skylake_mpi
 
 #SBATCH --mem-per-cpu=60G
 
-#####SBATCH --array=0-9
-#SBATCH --array=0-9
+#SBATCH --job-name=ngboost_openml
+
+#SBATCH --time=2-00:00:00
+
+#SBATCH --ntasks-per-node=1
+
+#SBATCH --array=10
 #SBATCH --mail-type=ALL
 
 
@@ -30,10 +29,9 @@ module load aiohttp/3.8.5-GCCcore-12.3.0
 module load Optuna/3.5.0-foss-2023a
 module load SciPy-bundle/2023.07-gfbf-2023a
 module load Pillow/10.0.0-GCCcore-12.3.0
-module load openpyxl/3.1.2-GCCcore-12.3.0
 
 source $VSC_SCRATCH/distiboost_311/bin/activate
 
 cd /scratch/brussel/105/vsc10528/LSSboost
 
-python uci/UCI_pgbm_HP_single_run.py $SLURM_ARRAY_TASK_ID
+python openml/openml_ngboost_HP_single_run.py $SLURM_ARRAY_TASK_ID

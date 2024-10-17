@@ -54,7 +54,7 @@ def encode_categorical_columns(df):
 def objective(trial, X, y):
     # Suggest hyperparameters
     lr = trial.suggest_float("lr", 1e-4, 1e-1)
-    n_estimators = trial.suggest_int("n_estimators", 500, 5000)
+    n_estimators = trial.suggest_int("n_estimators", 200, 2000)
     minibatch_frac = trial.suggest_float("minibatch_frac", 0.1, 1.0)
     base_learner = trial.suggest_categorical('Base', [0,1,2])
 
@@ -132,7 +132,7 @@ def run_single_argument(task_id):
 
     start_time_HP = time.time()
     study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner())
-    study.optimize(lambda trial: objective(trial, X_train_opt, y_train_opt), n_trials=20, timeout=3000*60)
+    study.optimize(lambda trial: objective(trial, X_train_opt, y_train_opt), n_trials=10, timeout=3000*60)
     elapsed_time_HP = time.time() - start_time_HP
 
     print("Best hyperparameters: ", study.best_params)

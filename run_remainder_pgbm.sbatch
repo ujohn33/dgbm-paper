@@ -1,19 +1,18 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_pgbm_uci/slurm-%A_%a.out # STDOUT
+#SBATCH --output=./report/%A_pgbm_rest_openml/slurm-%A_%a.out # STDOUT
 
-#SBATCH --job-name=PBGM_uci
+#SBATCH --job-name=pgbm_rest_openml
 
-#SBATCH --time=2-00:00:00
+#SBATCH --time=3-1:00:00
 
 #SBATCH --ntasks-per-node=1
 
 #SBATCH --partition=skylake,skylake_mpi
 
-#SBATCH --mem-per-cpu=60G
+#SBATCH --mem-per-cpu=100G
 
-#####SBATCH --array=0-9
-#SBATCH --array=0-9
+#SBATCH --array=10,15
 #SBATCH --mail-type=ALL
 
 
@@ -36,4 +35,4 @@ source $VSC_SCRATCH/distiboost_311/bin/activate
 
 cd /scratch/brussel/105/vsc10528/LSSboost
 
-python uci/UCI_pgbm_HP_single_run.py $SLURM_ARRAY_TASK_ID
+python openml/openml_pgbm_HP_single_run.py $SLURM_ARRAY_TASK_ID

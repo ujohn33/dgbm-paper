@@ -1,19 +1,18 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_pgbm_uci/slurm-%A_%a.out # STDOUT
+#SBATCH --output=./report/%A_pgbm_rest_openml/slurm-%A_%a.out # STDOUT
 
-#SBATCH --job-name=PBGM_uci
+#SBATCH --job-name=pgbm_rest_openml
 
-#SBATCH --time=2-00:00:00
+#SBATCH --time=3-1:00:00
 
 #SBATCH --ntasks-per-node=1
 
 #SBATCH --partition=skylake,skylake_mpi
 
-#SBATCH --mem-per-cpu=60G
+#SBATCH --mem-per-cpu=80G
 
-#####SBATCH --array=0-9
-#SBATCH --array=0-9
+#SBATCH --array=2,4,6,9
 #SBATCH --mail-type=ALL
 
 

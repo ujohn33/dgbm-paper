@@ -17,6 +17,15 @@ from utils.metrics import crps, quantile_loss
 
 np.random.seed(123)
 
+# Get command-line arguments
+if len(sys.argv) != 5:
+    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization>")
+    sys.exit(1)
+
+mode = sys.argv[2]  # e.g., 'exp'
+natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
+stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
+
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
         "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data",
@@ -53,9 +62,9 @@ dataset_list = ["Boston Housing", "Concrete Compression Strength", "Energy Effic
 
 # Hardcoded parameters for testing
 args = {
-    "mode": 'exp',
-    "natural_grad": True,
-    "stabilization": 'L2', # None, 'L2', "MAD"    
+    "mode": mode,
+    "natural_grad": natural_grad,
+    "stabilization": stabilization, # None, 'L2', "MAD"    
     "n_est": 2000,
     "n_splits": 20,
     "score": "MLE",
@@ -66,9 +75,10 @@ args = {
 param_dict = {
     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
-    "num_leaves": ["int", {"low": 20, "high": 200, "log": False}],  # Constant for this example
+    "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 10, "high": 100, "log": False}],  # Constant for this example
     "bagging_fraction": ["float", {"low": 0.5, "high": 1.0, "log": False}],
+    # "min_split_gain": ["categorical", [1.0]], # FIX SPLITTING ERROR
     "min_child_weight": ["categorical", [1.0]],
     "feature_pre_filter": ["categorical", [False]]
 }
@@ -159,7 +169,7 @@ def run_single_arguement(run_seed):
         lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
 
         opt_param = lgblss.hyper_opt(param_dict, full_train_data, num_boost_round=args["n_est"],
-                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=300, n_trials=20,
+                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=20,
                                     silence=True, seed=1, hp_seed=1)
         opt_params = opt_param.copy()
 

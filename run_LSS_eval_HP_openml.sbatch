@@ -12,7 +12,6 @@
 
 #SBATCH --mem-per-cpu=60G
 
-#####SBATCH --array=0-18
 #SBATCH --array=0-18
 #SBATCH --mail-type=ALL
 

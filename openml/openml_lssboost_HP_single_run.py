@@ -51,11 +51,14 @@ benchmark_suite = openml.study.get_suite(args['SUITE_ID'])  # obtain the benchma
 # Define your hyperparameter space
 param_dict = {
     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
-    "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
+    #"max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "feature_pre_filter": ["categorical", [False]],
-    "histogram_pool_size": ["categorical", [56320]],
+    'device':  ["categorical", ['cpu']],
+    'deterministic': ["categorical", [True]],
+    'min_child_weight': ["categorical", [1]],
+    "histogram_pool_size": ["categorical", [16384]],
 }
 
 def run_single_argument(task_id):

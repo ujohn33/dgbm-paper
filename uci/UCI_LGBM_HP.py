@@ -152,6 +152,7 @@ def run_single_arguement(run_seed):
             param_distributions=param_distributions,
             cv=cv,
             n_trials=args['n_trials'],
+            timeout=86400,
             refit=True,
             random_state=1,
             verbose=1

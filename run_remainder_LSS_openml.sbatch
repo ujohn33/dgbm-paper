@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_pgbm_uci/slurm-%A_%a.out # STDOUT
+#SBATCH --output=./report/%A_ExtraRAMLSS_openml/slurm-%A_%a.out # STDOUT
 
-#SBATCH --job-name=PBGM_uci
+#SBATCH --job-name=leftover_LSS_openml_nyc
 
-#SBATCH --time=2-00:00:00
+#SBATCH --time=1-12:00:00
 
 #SBATCH --ntasks-per-node=1
 
@@ -12,8 +12,6 @@
 
 #SBATCH --mem-per-cpu=60G
 
-#####SBATCH --array=0-9
-#SBATCH --array=0-9
 #SBATCH --mail-type=ALL
 
 
@@ -36,4 +34,14 @@ source $VSC_SCRATCH/distiboost_311/bin/activate
 
 cd /scratch/brussel/105/vsc10528/LSSboost
 
-python uci/UCI_pgbm_HP_single_run.py $SLURM_ARRAY_TASK_ID
+# Define variables
+mode='exp'
+natural_grad='True'
+stabilization='MAD'
+
+# Echo the parameters for logging
+echo "Running with mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization"
+
+# Run the Python script with the selected parameters
+python openml/openml_lssboost_HP_single_run.py 10 $mode $natural_grad $stabilization
+

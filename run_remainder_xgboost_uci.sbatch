@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_ExtraRAMLSS_openml/slurm-%A_%a.out # STDOUT
+#SBATCH --output=./report/%A_ExtraXGLSS_uci/slurm-%A_%a.out # STDOUT
 
-#SBATCH --job-name=leftover_LSS_nyc_taxi
+#SBATCH --job-name=leftover_XGLSS_year_MSD
 
-#SBATCH --time=1-12:00:00
+#SBATCH --time=3-00:00:00
 
 #SBATCH --ntasks-per-node=1
 
@@ -12,7 +12,7 @@
 
 #SBATCH --mem-per-cpu=120G
 
-#SBATCH --array=0,5
+#SBATCH --array=0-5
 
 #SBATCH --mail-type=ALL
 
@@ -61,5 +61,5 @@ stabilization=${stabilizations[$stabilization_index]}
 echo "Running with mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization"
 
 # Run the Python script with the selected parameters
-python openml/openml_lssboost_HP_single_run.py 10 $mode $natural_grad $stabilization
+python uci/UCI_xglssboost_HP_single_run.py 6 $mode $natural_grad $stabilization
 

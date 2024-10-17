@@ -1,19 +1,18 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A/slurm-%A_%a.out # STDOUT
+#SBATCH --output=./report/%A_gpboost_rest/slurm-%A_%a.out # STDOUT
 
-#SBATCH --job-name=gpboost_openml
+#SBATCH --job-name=gpboost_openml_rest
 
-#SBATCH --time=1-12:00:00
+#SBATCH --time=3-01:00:00
 
 #SBATCH --ntasks-per-node=1
 
 #SBATCH --partition=skylake,skylake_mpi
 
-#SBATCH --mem-per-cpu=60G
+#SBATCH --mem-per-cpu=100G
 
-#####SBATCH --array=0-18
-#SBATCH --array=0-18
+#SBATCH --array=10
 #SBATCH --mail-type=ALL
 
 
