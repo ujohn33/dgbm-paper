@@ -4,7 +4,7 @@
 
 #SBATCH --job-name=pgbm_rest_openml
 
-#SBATCH --time=3-1:00:00
+#SBATCH --time=2-12:00:00
 
 #SBATCH --ntasks-per-node=1
 

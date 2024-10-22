@@ -29,6 +29,7 @@ module load Optuna/3.5.0-foss-2023a
 module load SciPy-bundle/2023.07-gfbf-2023a
 module load Pillow/10.0.0-GCCcore-12.3.0
 module load openpyxl/3.1.2-GCCcore-12.3.0
+module load LightGBM/4.5.0-foss-2023a-CUDA-12.1.1
 
 source $VSC_SCRATCH/distiboost_311/bin/activate
 

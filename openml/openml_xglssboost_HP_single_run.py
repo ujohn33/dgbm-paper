@@ -92,7 +92,7 @@ def run_single_argument(task_id):
 
     np.random.seed(123)
     opt_param = xgblss.hyper_opt(param_dict, dtrain, num_boost_round=args["n_est"],
-                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=3000, n_trials=80,
+                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=80,
                                     silence=True, seed=1, hp_seed=1)
 
     end_time = time.time()  # End time measurement

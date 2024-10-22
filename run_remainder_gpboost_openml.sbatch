@@ -4,7 +4,7 @@
 
 #SBATCH --job-name=gpboost_openml_rest
 
-#SBATCH --time=3-01:00:00
+#SBATCH --time=3-00:00:00
 
 #SBATCH --ntasks-per-node=1
 

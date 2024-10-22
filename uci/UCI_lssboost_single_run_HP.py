@@ -78,9 +78,9 @@ param_dict = {
     "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 10, "high": 100, "log": False}],  # Constant for this example
     "bagging_fraction": ["float", {"low": 0.5, "high": 1.0, "log": False}],
-    # "min_split_gain": ["categorical", [1.0]], # FIX SPLITTING ERROR
     "min_child_weight": ["categorical", [1.0]],
     "feature_pre_filter": ["categorical", [False]]
+    "device": ["categorical", ['gpu']]
 }
 
 

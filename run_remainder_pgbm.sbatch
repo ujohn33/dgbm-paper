@@ -4,7 +4,7 @@
 
 #SBATCH --job-name=pgbm_rest_openml
 
-#SBATCH --time=3-1:00:00
+#SBATCH --time=1-12:00:00
 
 #SBATCH --ntasks-per-node=1
 
@@ -12,7 +12,7 @@
 
 #SBATCH --mem-per-cpu=100G
 
-#SBATCH --array=10,15
+#SBATCH --array=10
 #SBATCH --mail-type=ALL
 
 

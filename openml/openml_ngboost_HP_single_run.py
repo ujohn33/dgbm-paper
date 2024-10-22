@@ -132,7 +132,7 @@ def run_single_argument(task_id):
 
     start_time_HP = time.time()
     study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner())
-    study.optimize(lambda trial: objective(trial, X_train_opt, y_train_opt), n_trials=10, timeout=3000*60)
+    study.optimize(lambda trial: objective(trial, X_train_opt, y_train_opt), n_trials=10, timeout=86400)
     elapsed_time_HP = time.time() - start_time_HP
 
     print("Best hyperparameters: ", study.best_params)

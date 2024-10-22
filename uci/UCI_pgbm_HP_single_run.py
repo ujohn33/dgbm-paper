@@ -164,7 +164,8 @@ def run_single_argument(run_seed):
         print('Hyperparameter tuning...')
         study = optuna.create_study(direction='maximize')
         objective_tuning = Objective(X_train, y_train)
-        study.optimize(objective_tuning, n_trials=20, timeout=86400)
+        time_limit = 86400/len(folds)
+        study.optimize(objective_tuning, n_trials=20, timeout=time_limit)
         end_time = time.time()  # End time measurement
         elapsed_time_HP = end_time - start_time  # Calculate elapsed time
 
@@ -189,10 +190,11 @@ def run_single_argument(run_seed):
         print('Prediction...')
         yhat_point = model.predict(X_test)
         yhat_dist, mu, var = model.predict_dist(X_test, n_forecasts=n_forecasts, parallel=False, output_sample_statistics=True)
+        std = np.sqrt(var)
 
         # Compute metrics
         rmse = np.sqrt(mean_squared_error(yhat_point, y_test))
-        nll_test = -norm(mu, var).logpdf(y_test.flatten()).mean()
+        nll_test = -norm(mu, std).logpdf(y_test.flatten()).mean()
     
         yhat_dist = yhat_dist.reshape(yhat_dist.shape[1], yhat_dist.shape[0])
         crps_comps = crps(y_test.flatten(), yhat_dist)
@@ -215,7 +217,7 @@ def run_single_argument(run_seed):
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[q] = norm.ppf(q, loc=mu, scale=var)
+            quantile_preds[q] = norm.ppf(q, loc=mu, scale=std)
             q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
             quantile_losses.append(q_loss)
         
@@ -238,7 +240,7 @@ if __name__ == "__main__":
     print("______________________")
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(sys.argv[1])
-    file_path = "logs/uci/uci_pgbm_with_wql.csv"
+    file_path = "logs/uci/uci_pgbm.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

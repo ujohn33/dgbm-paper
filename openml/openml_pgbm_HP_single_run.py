@@ -117,7 +117,7 @@ def run_single_argument(task_id):
     print('Hyperparameter tuning...')
     study = optuna.create_study(direction='maximize')
     objective_tuning = Objective(X_train_opt, y_train_opt)
-    study.optimize(objective_tuning, n_trials=20)
+    study.optimize(objective_tuning, n_trials=20, timeout=86400)
     end_time = time.time()  # End time measurement
     elapsed_time_HP = end_time - start_time  # Calculate elapsed time
 
@@ -153,10 +153,11 @@ def run_single_argument(task_id):
         print('Prediction...')
         yhat_point  = model.predict(X_test.values)
         yhat_dist, mu, var = model.predict_dist(X_test.values, n_forecasts=n_forecasts, parallel=False, output_sample_statistics=True)
+        std = np.sqrt(var)
 
         # Compute metrics
         rmse = np.sqrt(mean_squared_error(yhat_point, y_test))
-        nll_test = -norm(mu, var).logpdf(y_test).mean()
+        nll_test = -norm(mu, std).logpdf(y_test).mean()
     
         yhat_dist = yhat_dist.reshape(yhat_dist.shape[1], yhat_dist.shape[0])
         crps_comps = crps(y_test, yhat_dist)
@@ -179,7 +180,7 @@ def run_single_argument(task_id):
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[str(q)] = norm.ppf(q, loc=mu, scale=var)
+            quantile_preds[str(q)] = norm.ppf(q, loc=mu, scale=std)
             q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
         

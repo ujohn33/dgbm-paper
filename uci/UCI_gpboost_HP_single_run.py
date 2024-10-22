@@ -146,7 +146,7 @@ def run_single_argument(run_seed):
         start_time = time.time()
         print('Hyperparameter tuning...')
         study = optuna.create_study(direction='minimize')
-        study.optimize(lambda trial: gpboost_objective(X_train, y_train, trial), n_trials=20, timeout=86400)
+        study.optimize(lambda trial: gpboost_objective(X_train, y_train, trial), n_trials=20, timeout=86400/len(folds))
         end_time = time.time()  # End time measurement
         elapsed_time_HP = end_time - start_time  # Calculate elapsed time
 
@@ -190,12 +190,13 @@ def run_single_argument(run_seed):
         pred = st_final.predict(X_test, group_data_pred=group_test, predict_var=True, pred_latent=False)
         mu = pred['response_mean']
         var = pred['response_var']
+        std = np.sqrt(var)
 
         # Compute metrics
         rmse = np.sqrt(mean_squared_error(mu, y_test))
-        nll_test = -norm(mu, var).logpdf(y_test.flatten()).mean()
+        nll_test = -norm(mu, std).logpdf(y_test.flatten()).mean()
 
-        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(mu, var)]])
+        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(mu, std)]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test.flatten(), samples)
 
@@ -215,7 +216,7 @@ def run_single_argument(run_seed):
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[q] = norm.ppf(q, loc=mu, scale=var)
+            quantile_preds[q] = norm.ppf(q, loc=mu, scale=std)
             q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
             quantile_losses.append(q_loss)
         

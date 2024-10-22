@@ -72,6 +72,8 @@ class Objective(object):
             'verbose': -1
         }
         
+        num_groups = trial.suggest_int('num_groups', 10, len(self.y_train)/10)
+        group_data = 
         gp_model = gpb.GPModel(group_data=np.arange(len(self.y_train)), likelihood="gaussian")
         dtrain = gpb.Dataset(self.X_train, self.y_train)
         
@@ -113,7 +115,7 @@ def run_single_argument(task_id):
     print('Hyperparameter tuning...')
     study = optuna.create_study(direction='maximize')
     objective_tuning = Objective(X_train_opt, y_train_opt)
-    study.optimize(objective_tuning, n_trials=20)
+    study.optimize(objective_tuning, n_trials=20, timeout=86400)
     end_time = time.time()  # End time measurement
     elapsed_time_HP = end_time - start_time  # Calculate elapsed time
 
@@ -170,9 +172,9 @@ def run_single_argument(task_id):
 
         # Compute metrics
         rmse = np.sqrt(mean_squared_error(mu, y_test))
-        nll_test = -norm(mu, var).logpdf(y_test).mean()
+        nll_test = -norm(mu, np.std(var)).logpdf(y_test).mean()
 
-        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(mu, var)]])
+        samples = np.array([[np.random.normal(loc=loc, scale=np.std(scale), size=100) for loc, scale in zip(mu, var)]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test, samples)
         crps_test = crps_comps[0]
@@ -219,7 +221,7 @@ if __name__ == "__main__":
     print("Task number: " + str(task_number))
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(task_number)
-    file_path = "logs/openml/gpboost.csv"
+    file_path = "logs/openml/openml_gpboost.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)
