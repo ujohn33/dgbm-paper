@@ -1,16 +1,22 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Current File with Arguments",
-            "type": "debugpy",
+            "name": "Python: Debug with Virtual Environment",
+            "type": "python",
             "request": "launch",
-            "program": "${file}",
+            "program": "${workspaceFolder}/openml/openml_lssboost_HP_single_run.py",
             "console": "integratedTerminal",
-            "args": "${command:pickArgs}"
+            "pythonPath": "/apps/brussel/RL8/broadwell/software/Python/3.11.3-GCCcore-12.3.0/bin/python",
+            "args": [
+                "123",  // Replace with your task ID or placeholder
+                "exp",
+                "False",
+                "L2"
+            ],
+            "env": {
+                "SLURM_ARRAY_TASK_ID": "123"  // Replace with your task ID
+            }
         }
     ]
 }

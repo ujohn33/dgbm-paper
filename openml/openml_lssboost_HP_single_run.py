@@ -14,6 +14,8 @@ from scipy.stats import norm
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
+from utils.logging import log_predictions
+from utils.safety import apply_safety_net
 
 
 np.random.seed(123)
@@ -25,25 +27,35 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 np.random.seed(1)
 
 # Get command-line arguments
-if len(sys.argv) != 5:
-    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization>")
+if len(sys.argv) != 6:
+    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization> <quantile_clipping>")
     sys.exit(1)
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
 stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
+quantile_clipping = sys.argv[5].lower() == 'true'
+clip_value = None
 
 # Define constants and parameters
 args = {
     "mode": mode,
     "natural_grad": natural_grad,
     "stabilization": stabilization, # None, 'L2', "MAD"
+    "quantile_clipping": quantile_clipping,
+    "clip_value": clip_value,
     "SUITE_ID": 336, # Regression on numerical features
     "n_est": 2000,
+    "n_trials": 80,
     "n_splits": 5,
     "score": "MLE",
     "distn": "Normal",
 }
+
+if natural_grad:
+    method_name = f'LSSboost_natural_{mode}_{stabilization}_{quantile_clipping}_l'
+else:
+    method_name = f'LSSboost_no_natural_{mode}_{stabilization}_{quantile_clipping}_l'
 
 # Obtain the benchmark suite from OpenML
 benchmark_suite = openml.study.get_suite(args['SUITE_ID'])  # obtain the benchmark suite
@@ -51,14 +63,14 @@ benchmark_suite = openml.study.get_suite(args['SUITE_ID'])  # obtain the benchma
 # Define your hyperparameter space
 param_dict = {
     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
-    #"max_depth": ["int", {"low": 2, "high": 10, "log": False}],
+    "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "feature_pre_filter": ["categorical", [False]],
-    'device':  ["categorical", ['cpu']],
-    'deterministic': ["categorical", [True]],
-    'min_child_weight': ["categorical", [1]],
-    "histogram_pool_size": ["categorical", [16384]],
+    'device':  ["categorical", ['cuda']],
+    #'deterministic': ["categorical", [True]],
+    #'min_child_weight': ["categorical", [1]],
+    #"histogram_pool_size": ["categorical", [16384]],
 }
 
 def run_single_argument(task_id):
@@ -92,7 +104,7 @@ def run_single_argument(task_id):
 
     np.random.seed(123)
     opt_param = lgblss.hyper_opt(param_dict, dtrain, num_boost_round=args["n_est"],
-                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=80,
+                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=args['n_trials'],
                                     silence=True, seed=1, hp_seed=1)
 
     end_time = time.time()  # End time measurement
@@ -138,6 +150,9 @@ def run_single_argument(task_id):
                         )
 
         forecast = lgblss.predict(X_test)
+
+        # Apply the safety net to the predictions
+        forecast = apply_safety_net(forecast, y_trainall.values)
         
         runtime_pred = time.time() - runtime_start
 
@@ -165,6 +180,10 @@ def run_single_argument(task_id):
             q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
         
+        #print(y_test)
+        # Log predictions for each fold
+        log_predictions(fold, dataset.name, y_test.values, forecast['loc'], forecast['scale'], quantile_preds, f"logs/openml/predictions/{method_name}.csv")
+
         # Compute the average of the quantile losses (WQL as an average)
         wql_avg_fold = np.mean(quantile_losses)
 
@@ -214,9 +233,9 @@ if __name__ == "__main__":
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     results = run_single_argument(task_number)
     if args['natural_grad']:
-        file_path = f"logs/openml/openml_LSSboost_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
+        file_path = f"results/openml/openml_{method_name}.csv"
     else:
-        file_path = f"logs/openml/openml_LSSboost_no_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
+        file_path = f"results/openml/openml_{method_name}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

@@ -126,7 +126,7 @@ if __name__ == "__main__":
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     results = run_single_argument(task_number)
 
-    file_path = "logs/openml/openml_autogluon.csv"
+    file_path = "results/openml/openml_autogluon.csv"
     header = ["dset","time_run","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

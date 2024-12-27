@@ -1,19 +1,18 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A/slurm-%A_%a.out # STDOUT
+#SBATCH --output=./report/%A_gpboost_rest/slurm-%A_%a.out # STDOUT
 
-#SBATCH --job-name=gpboost_openml
+#SBATCH --job-name=gpboost_uci_rest
 
-#SBATCH --time=1-12:00:00
+#SBATCH --time=3-01:00:00
 
 #SBATCH --ntasks-per-node=1
 
 #SBATCH --partition=skylake,skylake_mpi
 
-#SBATCH --mem-per-cpu=60G
+#SBATCH --mem-per-cpu=120G
 
-#####SBATCH --array=0-18
-#SBATCH --array=0-18
+#SBATCH --array=9
 #SBATCH --mail-type=ALL
 
 
@@ -31,9 +30,10 @@ module load Optuna/3.1.0-foss-2022a
 module load SciPy-bundle/2022.05-foss-2022a
 module load scikit-learn/1.1.2-foss-2022a
 module load Pillow/9.1.1-GCCcore-11.3.0
+module load openpyxl/3.0.10-GCCcore-11.3.0
 
 source $VSC_SCRATCH/distiboost/bin/activate
 
 cd /scratch/brussel/105/vsc10528/LSSboost
 
-python openml/openml_gpboost_HP_single_run.py $SLURM_ARRAY_TASK_ID
+python uci/UCI_gpboost_HP_single_run.py $SLURM_ARRAY_TASK_ID

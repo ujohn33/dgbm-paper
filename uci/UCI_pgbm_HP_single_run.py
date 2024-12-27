@@ -18,6 +18,7 @@ from scipy.stats import norm
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
+from utils.logging import log_predictions
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -53,6 +54,7 @@ dataset_name_to_loader = {
 
 dataset_list = ["Boston Housing", "Concrete Compression Strength", "Energy Efficiency", "Kin8nm", "Naval Propulsion", "Combined Cycle Power Plant", "Protein Structure", "Wine Quality Red", "Yacht Hydrodynamics", "Year Prediciton MSD"]
 n_forecasts = 200
+method_name = "pgbm"
 
 # Hardcoded parameters for testing
 args = {
@@ -80,19 +82,24 @@ class Objective(object):
         self.y_train = y_train
         
     def __call__(self, trial):
-        params = {
-            'n_estimators': 200,
-            'bagging_fraction': trial.suggest_uniform('bagging_fraction', 0.5, 1.0),
-            'learning_rate': trial.suggest_loguniform('learning_rate', 1e-5, 0.4),
-            'max_leaves': trial.suggest_int('max_leaves', 20, 200),
-            'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 20, 100),  # Constant for this example
-            'n_estimators': trial.suggest_int('n_estimators', 20, 200),
-            'device': 'gpu'
-        }
-        model = PGBMRegressor()
-        model.set_params(**params)
-        score = np.mean(cross_val_score(model, self.X_train, self.y_train, cv=5, n_jobs=5, scoring='neg_root_mean_squared_error'))
-        return score
+        try:
+            params = {
+                'n_estimators': 200,
+                'bagging_fraction': trial.suggest_uniform('bagging_fraction', 0.5, 1.0),
+                'learning_rate': trial.suggest_loguniform('learning_rate', 1e-4, 0.1),
+                'max_leaves': trial.suggest_int('max_leaves', 16, 64),
+                'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 20, 100),  # Constant for this example
+                'n_estimators': trial.suggest_int('n_estimators', 20, 200),
+                'device': trial.suggest_categorical('device', ['gpu']),
+                'verbose': trial.suggest_categorical('verbose', [2]),
+            }
+            model = PGBMRegressor()
+            model.set_params(**params)
+            score = np.mean(cross_val_score(model, self.X_train, self.y_train, cv=5, n_jobs=5, scoring='neg_root_mean_squared_error', error_score="raise"))
+            return score
+        except Exception as e:
+            print(f"Trial failed: {e}")
+            return float("inf")
 
 def run_single_argument(run_seed):
     dset = dataset_list[int(run_seed)]
@@ -126,12 +133,6 @@ def run_single_argument(run_seed):
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))        
     else:
-        # default_params = {
-        #     "max_depth":                9,
-        #     "num_leaves":               110,
-        #     "min_data_in_leaf":         22,
-        #     "subsample":                1,
-        # }
         kf = KFold(n_splits=args["n_splits"])
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
@@ -142,7 +143,6 @@ def run_single_argument(run_seed):
             permutation = np.random.choice(range(n), n, replace=False)
             end_train = round(n * 9.0 / 10)
             end_test = n
-
             train_index = permutation[0:end_train]
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))
@@ -159,13 +159,18 @@ def run_single_argument(run_seed):
         train_val_data = (X_train_val, y_train_val)
         valid_data = (X_val, y_val)
 
+        print(f'The Input data shape is {X_train.shape}')
+        assert not np.any(np.isnan(X_train)), "NaN values found in X_train"
+        assert not np.any(np.isnan(y_train)), "NaN values found in y_train"
+        assert not np.any(np.isinf(X_train)), "Infinity values found in X_train"
+
         # Hyperparameter optimization with Optuna
         start_time = time.time()
         print('Hyperparameter tuning...')
         study = optuna.create_study(direction='maximize')
         objective_tuning = Objective(X_train, y_train)
         time_limit = 86400/len(folds)
-        study.optimize(objective_tuning, n_trials=20, timeout=time_limit)
+        study.optimize(objective_tuning, n_trials=20)
         end_time = time.time()  # End time measurement
         elapsed_time_HP = end_time - start_time  # Calculate elapsed time
 
@@ -190,14 +195,14 @@ def run_single_argument(run_seed):
         print('Prediction...')
         yhat_point = model.predict(X_test)
         yhat_dist, mu, var = model.predict_dist(X_test, n_forecasts=n_forecasts, parallel=False, output_sample_statistics=True)
-        std = np.sqrt(var)
+        std = np.sqrt(var.cpu().numpy())
 
         # Compute metrics
-        rmse = np.sqrt(mean_squared_error(yhat_point, y_test))
-        nll_test = -norm(mu, std).logpdf(y_test.flatten()).mean()
+        rmse = np.sqrt(mean_squared_error(yhat_point.cpu().numpy(), y_test))
+        nll_test = -norm(mu.cpu().numpy(), std).logpdf(y_test.flatten()).mean()
     
         yhat_dist = yhat_dist.reshape(yhat_dist.shape[1], yhat_dist.shape[0])
-        crps_comps = crps(y_test.flatten(), yhat_dist)
+        crps_comps = crps(y_test.flatten(), yhat_dist.cpu().numpy())
         crps_test = crps_comps[0]
         crps_cal, crps_sha = crps_comps[1], crps_comps[2]
 
@@ -217,10 +222,13 @@ def run_single_argument(run_seed):
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[q] = norm.ppf(q, loc=mu, scale=std)
-            q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
+            quantile_preds[str(q)] = norm.ppf(q, loc=mu.cpu().numpy(), scale=std)
+            q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
         
+        # Log predictions for each fold
+        log_predictions(itr, dset, y_test, mu, std, quantile_preds, f"logs/uci/predictions/{method_name}.csv")
+
         # Compute the average of the quantile losses (WQL as an average)
         wql_avg_fold = np.mean(quantile_losses)
 
@@ -240,7 +248,7 @@ if __name__ == "__main__":
     print("______________________")
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(sys.argv[1])
-    file_path = "logs/uci/uci_pgbm.csv"
+    file_path = f"results/uci/uci_{method_name}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

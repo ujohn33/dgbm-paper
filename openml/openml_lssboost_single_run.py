@@ -14,17 +14,25 @@ from properscoring._mean_crps import _mean_crps_hersbach
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
+from utils.logging import log_predictions
 
 np.random.seed(123)
 
 # Set OpenML API key
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
+# Get command-line arguments
+if len(sys.argv) != 5:
+    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization>")
+    sys.exit(1)
+
+mode = sys.argv[2]  # e.g., 'exp'
+natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
+stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
+
 # Define constants and parameters
 SUITE_ID = 336 # Regression on numerical features
 np.random.seed(1)
-mode = 'exp'
-natural_flag = True
 args = {
     "reps": 3,
     "n_est": 5,
@@ -34,6 +42,11 @@ args = {
     "base": "tree",
     "verbose": True,
 }
+
+if natural_grad:
+    method_name = f'LSSboost_natural_{mode}_{stabilization}'
+else:
+    method_name = f'LSSboost_no_natural_{mode}_{stabilization}'
 
 # Obtain the benchmark suite from OpenML
 benchmark_suite = openml.study.get_suite(SUITE_ID)  # obtain the benchmark suite
@@ -52,7 +65,7 @@ def run_single_argument(task_id):
 
     start_time = time.time()  # Start time measurement
 
-    lgblss = LightGBMLSS(Gaussian(stabilization="None", response_fn=mode, loss_fn="nll", natural_gradient=natural_flag))
+    lgblss = LightGBMLSS(Gaussian(stabilization=stabilization, response_fn=mode, loss_fn="nll", natural_gradient=natural_grad))
     lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
 
     default_params = {
@@ -131,6 +144,8 @@ def run_single_argument(task_id):
         wql_09 += [quantile_losses[2]]
         wql_avg += [wql_avg_fold]
 
+        log_predictions(fold, dataset.name, y_test, yhat_point, forecast['loc'], forecast['scale'], quantile_preds, f"logs/openml/predictions/{method_name}.csv")
+
         print(
                 "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_CAL=%.4f CRPS_SHA=%.4f TIME=%.4f WQL_01=%.4f WQL_05=%.4f WQL_09=%.4f WQL_AVG=%.4f"
                 % (
@@ -176,7 +191,7 @@ if __name__ == "__main__":
     results = run_single_argument(task_number)
     print(results)
     #results.append(result)
-    # if natural_flag:
+    # if natural_grad:
     #     file = open("logs/openml_LSSboost_natural.csv", "a+")
     # else:
     #     file = open("logs/openml_LSSboost_no_natural.csv", "a+")

@@ -9,14 +9,16 @@ import time
 import torch
 import gpboost as gpb
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import KFold, train_test_split
+from sklearn.model_selection import KFold, train_test_split, cross_val_score
+from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 import optuna
-from sklearn.model_selection import train_test_split, cross_val_score
 from scipy.stats import norm
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
+from utils.logging import log_predictions
+from utils.mem_usage import reduce_mem_usage
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -52,6 +54,8 @@ dataset_name_to_loader = {
 
 dataset_list = ["Boston Housing", "Concrete Compression Strength", "Energy Efficiency", "Kin8nm", "Naval Propulsion", "Combined Cycle Power Plant", "Protein Structure", "Wine Quality Red", "Yacht Hydrodynamics", "Year Prediciton MSD"]
 n_forecasts = 1000
+NUM_ROUNDS = 40
+method_name = 'GPboost'
 
 # Hardcoded parameters for testing
 args = {
@@ -63,22 +67,33 @@ args = {
 }
 
 # Define objective function for GPBoost
-def gpboost_objective(X_train, y_train, trial):
+def gpboost_objective(X_train, y_train, trial, coords_train, approx: bool):
     params = {
-        'learning_rate': trial.suggest_loguniform('learning_rate', 1e-4, 0.1),
-        'max_depth': trial.suggest_int('max_depth', 1, 6),
-        'num_leaves': trial.suggest_int('num_leaves', 2, 64),
-        'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 10, 100),
-        'lambda_l2': trial.suggest_loguniform('lambda_l2', 1e-4, 1),
-        'verbose': -1
-    }
-    
-    gp_model = gpb.GPModel(group_data=np.arange(len(y_train)), likelihood="gaussian")
+            'learning_rate': trial.suggest_float('learning_rate', 1e-4, 0.1),
+            'max_depth': trial.suggest_categorical('max_depth', [-1]),  # Only -1 here, but can add more if desired            'num_leaves': trial.suggest_categorical('num_leaves', [2**i for i in range(1, 10)]),
+            'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 10, 100),
+            'lambda_l2': trial.suggest_float('lambda_l2', 1e-3, 1),
+            'verbose': -1
+            }
     dtrain = gpb.Dataset(X_train, y_train)
-    
-    cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=2000, nfold=5, early_stopping_rounds=10)
-    #print(cv_results)
-    return np.mean(cv_results['test_neg_log_likelihood-mean'])
+    delta_conv = trial.suggest_float('delta_rel_conv', 1e-4, 0.1)
+    try: 
+        if approx:
+            # Use gp_coords instead of group_data
+            gp_model = gpb.GPModel(gp_coords=coords_train, likelihood="gaussian", gp_approx = "vecchia")
+            gp_model.set_optim_params(params={"optimizer_cov": "nelder_mead"})
+            params['num_neighbors'] = trial.suggest_int('num_neighbours', 10, 50, step=10)
+            gp_model.set_optim_params(params={"delta_rel_conv": delta_conv})
+            cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=NUM_ROUNDS, nfold=5, early_stopping_rounds=10,  train_gp_model_cov_pars=False)
+        else:
+            # Use gp_coords instead of group_data
+            gp_model = gpb.GPModel(gp_coords=coords_train, likelihood="gaussian")
+            cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=NUM_ROUNDS, nfold=5, early_stopping_rounds=10)
+        #print(cv_results)
+        return np.mean(cv_results['test_neg_log_likelihood-mean'])
+    except Exception as e:
+        print(f"Trial failed due to error: {e}")
+        return float('inf')  # Return a high loss if an error is encountered
 
 def run_single_argument(run_seed):
     dset = dataset_list[int(run_seed)]
@@ -89,9 +104,15 @@ def run_single_argument(run_seed):
 
     # Load dataset -- use last column as labela
     data = dataset_name_to_loader[args['dataset']]()
+    # Optimize memory usage
+    data = reduce_mem_usage(data)
     X, y = data.iloc[:, :-1].values, data.iloc[:, -1].values
 
     print(f"== Dataset={args['dataset']} X.shape={str(X.shape)} {args['distn']}")
+    if len(y) > 1000:
+        approx_status = True
+    else:
+        approx_status = False
     lgbm_rmse = []
     if args["dataset"] == "Year Prediciton MSD":
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
@@ -132,7 +153,6 @@ def run_single_argument(run_seed):
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))
 
-
     for itr, (train_index, test_index) in enumerate(folds):
         print(f'{dset}: fold {itr + 1}/{len(folds)}')
         #X_train, X_test, y_train, y_test = get_fold(dataset_name, data, fold)
@@ -140,13 +160,19 @@ def run_single_argument(run_seed):
         y_train, y_test = y[train_index], y[test_index]
         indices = np.arange(len(y_train))
         X_train_val, X_val, y_train_val, y_val, train_val_ind, val_ind = train_test_split(X_train, y_train, indices, test_size=0.2)
-        group = np.arange(len(y_train))
+        # Subset coordinates for training and validation
+        # Standardize the input features (S) for Gaussian Process only on training data
+        scaler = StandardScaler()
+        coords_train_val_scaled = scaler.fit_transform(X_train_val)  # Fit and transform on training data
+        coords_train_scaled = scaler.transform(X_train)  # Fit and transform on training data
+        coords_val_scaled = scaler.transform(X_val) 
+        coords_test_scaled = scaler.transform(X_test)  # Apply the same transformation to test data
 
         # Hyperparameter optimization with Optuna
         start_time = time.time()
-        print('Hyperparameter tuning...')
         study = optuna.create_study(direction='minimize')
-        study.optimize(lambda trial: gpboost_objective(X_train, y_train, trial), n_trials=20, timeout=86400/len(folds))
+        print('Hyperparameter tuning...')
+        study.optimize(lambda trial: gpboost_objective(X_train, y_train, trial, coords_train_scaled, approx_status), n_trials=20, timeout=86400)
         end_time = time.time()  # End time measurement
         elapsed_time_HP = end_time - start_time  # Calculate elapsed time
 
@@ -154,19 +180,31 @@ def run_single_argument(run_seed):
         best_params = study.best_params
         print(f'Best hyperparameters for fold {itr + 1}: {best_params}')
 
-        gp_model = gpb.GPModel(group_data=group[train_val_ind], likelihood="gaussian")
+        if approx_status:
+            # Define GP model with coordinates for GP
+            gp_model = gpb.GPModel(gp_coords=coords_train_val_scaled, likelihood="gaussian", gp_approx = "vecchia")
+            gp_model.set_optim_params(params={"optimizer_cov": "nelder_mead"})
+            gp_model.set_optim_params(params={"delta_rel_conv": best_params['delta_rel_conv']})
+        else:
+            # Define GP model with coordinates for GP
+            gp_model = gpb.GPModel(gp_coords=coords_train_val_scaled, likelihood="gaussian")
         dtrain = gpb.Dataset(X_train, y_train)
         dtrain_val = gpb.Dataset(X_train_val, y_train_val)
         deval = gpb.Dataset(X_val, y_val, reference=dtrain_val)
 
-        eval_ind = val_ind
-        # Use a valiation set for finding the optimal number of iterations
-        gp_model.set_prediction_data(group_data_pred=group[eval_ind])
         evals_result = {}  # record eval results for plotting
-        st = gpb.train(params=best_params, train_set=dtrain_val, num_boost_round=2000,
-                gp_model=gp_model, valid_sets=deval, 
-                early_stopping_rounds=20, use_gp_model_for_validation=True,
-                evals_result=evals_result)
+        # Use a valiation set for finding the optimal number of iterations
+        gp_model.set_prediction_data(gp_coords_pred=coords_val_scaled)
+        if approx_status:
+            st = gpb.train(params=best_params, train_set=dtrain_val, num_boost_round=NUM_ROUNDS,
+                    gp_model=gp_model, valid_sets=deval, 
+                    early_stopping_rounds=20, use_gp_model_for_validation=True,
+                    evals_result=evals_result, train_gp_model_cov_pars=False)
+        else: 
+            st = gpb.train(params=best_params, train_set=dtrain_val, num_boost_round=NUM_ROUNDS,
+                    gp_model=gp_model, valid_sets=deval, 
+                    early_stopping_rounds=20, use_gp_model_for_validation=True,
+                    evals_result=evals_result)
         #print(evals_result)
         # Step 1: Extract the test_neg_log_likelihood list
         neg_log_likelihood_list = evals_result['valid_0']['test_neg_log_likelihood']
@@ -179,15 +217,19 @@ def run_single_argument(run_seed):
         # Train the final model configuration
         print('Training final model...')
         start_time = time.time()
-        st_final = gpb.train(params=best_params, train_set=dtrain_val, num_boost_round=best_iter,
-            gp_model=gp_model, use_gp_model_for_validation=True)
+        if approx_status:
+            st_final = gpb.train(params=best_params, train_set=dtrain_val, num_boost_round=best_iter,
+                gp_model=gp_model, use_gp_model_for_validation=True, train_gp_model_cov_pars=False)
+        else:
+            st_final = gpb.train(params=best_params, train_set=dtrain_val, num_boost_round=best_iter,
+                gp_model=gp_model, use_gp_model_for_validation=True)
         training_time = time.time() - start_time
         print(f'Training time for fold {itr + 1}: {training_time:.2f} seconds')
 
         # Make predictions
         print('Prediction...')
         group_test = np.arange(len(y_test))
-        pred = st_final.predict(X_test, group_data_pred=group_test, predict_var=True, pred_latent=False)
+        pred = st.predict(X_test, gp_coords_pred=coords_test_scaled, predict_var=True, pred_latent=False)
         mu = pred['response_mean']
         var = pred['response_var']
         std = np.sqrt(var)
@@ -216,10 +258,13 @@ def run_single_argument(run_seed):
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[q] = norm.ppf(q, loc=mu, scale=std)
-            q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
+            quantile_preds[str(q)] = norm.ppf(q, loc=mu, scale=std)
+            q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
         
+        # Log predictions for each fold
+        log_predictions(itr, dset, y_test, mu, std, quantile_preds, f"logs/uci/predictions/{method_name}.csv")
+
         # Compute the average of the quantile losses (WQL as an average)
         wql_avg_fold = np.mean(quantile_losses)
 
@@ -239,7 +284,7 @@ if __name__ == "__main__":
     print("______________________")
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(sys.argv[1])
-    file_path = "logs/uci/uci_gpboost.csv"
+    file_path = f"results/uci/uci_{method_name}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

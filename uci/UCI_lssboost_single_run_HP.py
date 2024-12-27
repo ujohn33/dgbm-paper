@@ -14,6 +14,8 @@ from scipy.stats import norm
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
+from utils.logging import log_predictions
+from utils.safety import apply_safety_net 
 
 np.random.seed(123)
 
@@ -25,6 +27,10 @@ if len(sys.argv) != 5:
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
 stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
+if natural_grad:
+    method_name = f'LSSboost_natural_{mode}_{stabilization}'
+else:
+    method_name = f'LSSboost_no_natural_{mode}_{stabilization}'
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -76,11 +82,11 @@ param_dict = {
     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
-    "min_data_in_leaf": ["int", {"low": 10, "high": 100, "log": False}],  # Constant for this example
-    "bagging_fraction": ["float", {"low": 0.5, "high": 1.0, "log": False}],
-    "min_child_weight": ["categorical", [1.0]],
-    "feature_pre_filter": ["categorical", [False]]
-    "device": ["categorical", ['gpu']]
+    "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
+    "feature_pre_filter": ["categorical", [False]],
+    'device':  ["categorical", ['cuda']],
+    # "min_child_weight": ["categorical", [1.0]],
+    # "device": ["categorical", ['gpu']]
 }
 
 
@@ -200,6 +206,10 @@ def run_single_arguement(run_seed):
                         )
         # the final prediction for this fold
         forecast = lgblss.predict(X_test)
+
+        # Apply the safety net to the predictions
+        forecast = apply_safety_net(forecast, y_trainall)
+
         forecast_val = lgblss.predict(X_val)
 
         # Time the duration for forecast deployment
@@ -225,10 +235,13 @@ def run_single_arguement(run_seed):
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[q] = norm.ppf(q, loc=forecast['loc'], scale=forecast['scale'])
-            q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
+            quantile_preds[str(q)] = norm.ppf(q, loc=forecast['loc'], scale=forecast['scale'])
+            q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
-        
+
+        # Log predictions for each fold
+        log_predictions(itr, dset, y_test, forecast['loc'], forecast['scale'], quantile_preds, f"logs/uci/predictions/{method_name}.csv")
+
         # Compute the average of the quantile losses (WQL as an average)
         wql_avg_fold = np.mean(quantile_losses)
 
@@ -278,9 +291,9 @@ if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
     if args['natural_grad']:
-        file_path = f"logs/uci/uci_LSSboost_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
+        file_path = f"results/uci/uci_LSSboost_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
     else:
-        file_path = f"logs/uci/uci_LSSboost_no_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
+        file_path = f"results/uci/uci_LSSboost_no_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

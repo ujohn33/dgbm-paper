@@ -14,6 +14,9 @@ import csv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
+from utils.logging import log_predictions
+from utils.safety import apply_safety_net
+
 
 np.random.seed(123)
 
@@ -30,6 +33,7 @@ if len(sys.argv) != 5:
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
 stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
+method_name = 'XGBoostLSS'
 
 # Define constants and parameters
 args = {
@@ -143,6 +147,9 @@ def run_single_argument(task_id):
 
         forecast = xgblss.predict(dtest)
         runtime_pred = time.time() - runtime_start
+
+        forecast = apply_safety_net(forecast, y_trainall.values)
+        
         forecast_val = xgblss.predict(deval)
 
         lss_rmse += [np.sqrt(mean_squared_error(forecast['loc'], y_test))]
@@ -169,6 +176,8 @@ def run_single_argument(task_id):
         
         # Compute the average of the quantile losses (WQL as an average)
         wql_avg_fold = np.mean(quantile_losses)
+
+        log_predictions(fold, dataset.name, y_test.values, forecast['loc'], forecast['scale'], quantile_preds, f"logs/openml/predictions/{method_name}_{str(args['mode'])}_{str(args['stabilization'])}.csv")
 
         wql_01 += [quantile_losses[0]]
         wql_05 += [quantile_losses[1]]

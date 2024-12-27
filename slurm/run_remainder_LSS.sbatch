@@ -1,19 +1,12 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_ExtraRAMLSS_openml/slurm-%A_%a.out # STDOUT
-
-#SBATCH --job-name=leftover_LSS_nyc_taxi
-
+#SBATCH --output=./report/%A_ExtraRAMLSS_openml_nyc/slurm-%A_%a.out # STDOUT
+#SBATCH --job-name=leftover_LSS_nyc
 #SBATCH --time=1-12:00:00
-
 #SBATCH --ntasks-per-node=1
-
+#SBATCH --mem-per-cpu=90G
 #SBATCH --partition=skylake,skylake_mpi
-
-#SBATCH --mem-per-cpu=120G
-
-#SBATCH --array=0,5
-
+#SBATCH --array=0
 #SBATCH --mail-type=ALL
 
 

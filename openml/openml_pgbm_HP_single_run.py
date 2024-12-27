@@ -26,6 +26,7 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
 # Define constants and parameters
 SUITE_ID = 336 # Regression on numerical features
+method_name = 'pgbm'
 np.random.seed(1)
 mode = 'exp'
 natural_flag = False
@@ -78,7 +79,7 @@ class Objective(object):
             'max_leaves': trial.suggest_int('max_leaves', 20, 200),
             'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 20, 100),  # Constant for this example
             'n_estimators': trial.suggest_int('n_estimators', 10, 200),
-            'device': 'gpu'
+            'device': trial.suggest_categorical('device', ['gpu'])
         }
         model = PGBMRegressor()
         model.set_params(**params)
@@ -153,14 +154,14 @@ def run_single_argument(task_id):
         print('Prediction...')
         yhat_point  = model.predict(X_test.values)
         yhat_dist, mu, var = model.predict_dist(X_test.values, n_forecasts=n_forecasts, parallel=False, output_sample_statistics=True)
-        std = np.sqrt(var)
+        std = np.sqrt(var.cpu().numpy())
 
         # Compute metrics
-        rmse = np.sqrt(mean_squared_error(yhat_point, y_test))
-        nll_test = -norm(mu, std).logpdf(y_test).mean()
+        rmse = np.sqrt(mean_squared_error(yhat_point.cpu().numpy(), y_test))
+        nll_test = -norm(mu.cpu().numpy(), std).logpdf(y_test).mean()
     
         yhat_dist = yhat_dist.reshape(yhat_dist.shape[1], yhat_dist.shape[0])
-        crps_comps = crps(y_test, yhat_dist)
+        crps_comps = crps(y_test, yhat_dist.cpu().numpy())
         crps_test = crps_comps[0]
         crps_cal, crps_sha = crps_comps[1], crps_comps[2]
 
@@ -180,9 +181,12 @@ def run_single_argument(task_id):
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[str(q)] = norm.ppf(q, loc=mu, scale=std)
+            quantile_preds[str(q)] = norm.ppf(q, loc=mu.cpu().numpy(), scale=std)
             q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
+
+        # Log predictions for each fold
+        log_predictions(fold, dset_name, y_test.values, mu, std, quantile_preds, f"logs/openml/predictions/{method_name}.csv")
         
         # Compute the average of the quantile losses (WQL as an average)
         wql_avg_fold = np.mean(quantile_losses)
@@ -204,7 +208,7 @@ if __name__ == "__main__":
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(task_number)
-    file_path = "logs/openml/openml_PBGM.csv"
+    file_path = "results/openml/openml_PBGM.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

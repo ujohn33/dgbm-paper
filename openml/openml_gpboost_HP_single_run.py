@@ -10,14 +10,16 @@ import time
 import torch
 import gpboost as gpb
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import KFold, train_test_split
+from sklearn.model_selection import KFold, train_test_split, cross_val_score
+from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 import optuna
-from sklearn.model_selection import train_test_split, cross_val_score
 from scipy.stats import norm
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
+from utils.logging import log_predictions
+from utils.mem_usage import reduce_mem_usage
 
 np.random.seed(123)
 
@@ -27,9 +29,8 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 # Define constants and parameters
 SUITE_ID = 336 # Regression on numerical features
 np.random.seed(1)
-mode = 'exp'
-natural_flag = False
 n_forecasts = 100
+NUM_ROUNDS = 40
 
 # Hardcoded parameters for testing
 args = {
@@ -40,6 +41,8 @@ args = {
     "verbose_eval":1,
     "random_state":1
 }
+
+method_name = 'GPboost'
 
 # Obtain the benchmark suite from OpenML
 benchmark_suite = openml.study.get_suite(SUITE_ID) 
@@ -58,28 +61,39 @@ def encode_categorical_columns(df):
 
 # Define the Optuna objective class for hyperparameter tuning
 class Objective(object):
-    def __init__(self, X_train, y_train):
+    def __init__(self, X_train, y_train, coords_train, approx):
         self.X_train = X_train
         self.y_train = y_train
+        self.coords_train = coords_train
+        self.approx = approx
         
     def __call__(self, trial):
         params = {
             'learning_rate': trial.suggest_float('learning_rate', 1e-4, 0.1),
-            'max_depth': trial.suggest_int('max_depth', 1, 6),
-            'num_leaves': trial.suggest_int('num_leaves', 2, 64),
+            'max_depth': trial.suggest_categorical('max_depth', [-1]),  # Only -1 here, but can add more if desired            'num_leaves': trial.suggest_categorical('num_leaves', [2**i for i in range(1, 10)]),
             'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 10, 100),
-            'lambda_l2': trial.suggest_float('lambda_l2', 1e-4, 1),
+            'lambda_l2': trial.suggest_float('lambda_l2', 1e-3, 1),
             'verbose': -1
-        }
-        
-        num_groups = trial.suggest_int('num_groups', 10, len(self.y_train)/10)
-        group_data = 
-        gp_model = gpb.GPModel(group_data=np.arange(len(self.y_train)), likelihood="gaussian")
+            }
+        delta_conv = trial.suggest_float('delta_rel_conv', 1e-4, 0.1)
         dtrain = gpb.Dataset(self.X_train, self.y_train)
-        
-        cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=2000, nfold=5, early_stopping_rounds=10)
-        #print(cv_results)
-        return np.mean(cv_results['test_neg_log_likelihood-mean'])
+        try:
+            if approx:
+                # Use gp_coords instead of group_data
+                gp_model = gpb.GPModel(gp_coords=coords_train, likelihood="gaussian", gp_approx = "vecchia")
+                gp_model.set_optim_params(params={"optimizer_cov": "nelder_mead"})
+                params['num_neighbors'] = trial.suggest_int('num_neighbours', 10, 50, step=10)
+                gp_model.set_optim_params(params={"delta_rel_conv": delta_conv})
+                cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=NUM_ROUNDS, nfold=5, early_stopping_rounds=10,  train_gp_model_cov_pars=False)
+            else:
+                # Use gp_coords instead of group_data
+                gp_model = gpb.GPModel(gp_coords=coords_train, likelihood="gaussian")
+                cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=NUM_ROUNDS, nfold=5, early_stopping_rounds=10)
+
+            return np.mean(cv_results['test_neg_log_likelihood-mean'])
+        except Exception as e:
+            print(f"Trial failed due to error: {e}")
+            return float('inf')  # Return a high loss if an error is encountered
 
 def run_single_argument(task_id):
     task = openml.tasks.get_task(task_id)  # download the OpenML task
@@ -87,6 +101,8 @@ def run_single_argument(task_id):
     X, y, categorical_indicator, attribute_names = dataset.get_data(
         dataset_format="dataframe", target=dataset.default_target_attribute
     )
+    # Optimize memory usage
+    X = reduce_mem_usage(X)
     print(f'Processing the dataset: {dataset.name}')
     
     # Encode categorical columns
@@ -100,6 +116,11 @@ def run_single_argument(task_id):
     dset_name = dataset.name
     print(f"== Task ID={task_id} Dataset={dset_name} X.shape={str(X.shape)} {args['distn']}")
 
+    if len(y) > 1000:
+        approx_status = True
+    else:
+        approx_status = False
+
     n_repeats, n_folds, n_samples = task.get_split_dimensions()
     print(f"Task {task_id}: number of repeats: {n_repeats}, number of folds: {n_folds}, number of samples {n_samples}.")
 
@@ -108,13 +129,17 @@ def run_single_argument(task_id):
     X_train_opt, X_test_opt = X.iloc[train_indices], X.iloc[test_indices]
     y_train_opt, y_test_opt = y.iloc[train_indices], y.iloc[test_indices]
 
+    # Standardize the input features (S) for Gaussian Process only on training data
+    scaler = StandardScaler()
+    coords_train_opt_scaled = scaler.fit_transform(X_train_opt)  # Fit and transform on training data
+
     train_opt_data = (X_train_opt.values, y_train_opt.values)
 
     # Hyperparameter optimization with Optuna
     start_time = time.time()
     print('Hyperparameter tuning...')
     study = optuna.create_study(direction='maximize')
-    objective_tuning = Objective(X_train_opt, y_train_opt)
+    objective_tuning = Objective(X_train_opt, y_train_opt, coords_train_opt_scaled, approx_status)
     study.optimize(objective_tuning, n_trials=20, timeout=86400)
     end_time = time.time()  # End time measurement
     elapsed_time_HP = end_time - start_time  # Calculate elapsed time
@@ -131,7 +156,10 @@ def run_single_argument(task_id):
 
         indices = np.arange(len(y_train))
         X_train_val, X_val, y_train_val, y_val, train_val_ind, val_ind = train_test_split(X_train, y_train, indices, test_size=0.2)
-        group = np.arange(len(y_train))
+        # Standardize the input features (S) for Gaussian Process only on training data
+        coords_train = scaler.transform(X_train_val)
+        coords_val = scaler.transform(X_val)
+        coords_test = scaler.transform(X_test)
 
         train_data = gpb.Dataset(X_train.values, y_train.values)
         train_val_data = gpb.Dataset(X_train_val.values, y_train_val.values)
@@ -139,15 +167,26 @@ def run_single_argument(task_id):
 
         # Train the final model on the full training set (including validation)
         print('Training validation model...')
-        gp_model = gpb.GPModel(group_data=group[train_val_ind], likelihood="gaussian")
+        if approx_status:
+            gp_model = gpb.GPModel(gp_coords=coords_train, likelihood="gaussian", gp_approx = "vecchia")
+            gp_model.set_optim_params(params={"optimizer_cov": "nelder_mead"})
+            gp_model.set_optim_params(params={"delta_rel_conv": best_params['delta_rel_conv']})
+        else:
+            gp_model = gpb.GPModel(gp_coords=coords_train, likelihood="gaussian")
         eval_ind = val_ind
         # Use a valiation set for finding the optimal number of iterations
-        gp_model.set_prediction_data(group_data_pred=group[eval_ind])
+        gp_model.set_prediction_data(gp_coords_pred=coords_val)
         evals_result = {}  # record eval results for plotting
-        st = gpb.train(params=best_params, train_set=train_val_data, num_boost_round=2000,
-                gp_model=gp_model, valid_sets=valid_data, 
-                early_stopping_rounds=20, use_gp_model_for_validation=True,
-                evals_result=evals_result)
+        if approx_status:
+            st = gpb.train(params=best_params, train_set=train_val_data, num_boost_round=NUM_ROUNDS,
+                    gp_model=gp_model, valid_sets=valid_data, 
+                    early_stopping_rounds=20, use_gp_model_for_validation=True,
+                    evals_result=evals_result, train_gp_model_cov_pars=False)
+        else:
+            st = gpb.train(params=best_params, train_set=train_val_data, num_boost_round=NUM_ROUNDS,
+                    gp_model=gp_model, valid_sets=valid_data, 
+                    early_stopping_rounds=20, use_gp_model_for_validation=True,
+                    evals_result=evals_result)
         # Step 1: Extract the test_neg_log_likelihood list
         neg_log_likelihood_list = evals_result['valid_0']['test_neg_log_likelihood']
 
@@ -159,22 +198,23 @@ def run_single_argument(task_id):
         print('Training final model...')
         start_time = time.time()
         st_final = gpb.train(params=best_params, train_set=train_val_data, num_boost_round=best_iter,
-        gp_model=gp_model, use_gp_model_for_validation=True)
+        gp_model=gp_model, use_gp_model_for_validation=False)
         training_time = time.time() - start_time
         print(f'Training time for fold {fold + 1}: {training_time:.2f} seconds')
         
         # Make predictions
         print('Prediction...')
         group_test = np.arange(len(y_test))
-        pred = st_final.predict(X_test.values, group_data_pred=group_test, predict_var=True, pred_latent=False)
+        pred = st_final.predict(X_test.values, gp_coords_pred=coords_test, predict_var=True, pred_latent=False)
         mu = pred['response_mean']
         var = pred['response_var']
+        std = np.sqrt(var)
 
         # Compute metrics
         rmse = np.sqrt(mean_squared_error(mu, y_test))
-        nll_test = -norm(mu, np.std(var)).logpdf(y_test).mean()
+        nll_test = -norm(mu, std).logpdf(y_test).mean()
 
-        samples = np.array([[np.random.normal(loc=loc, scale=np.std(scale), size=100) for loc, scale in zip(mu, var)]])
+        samples = np.array([[np.random.normal(loc=loc, scale=np.std(scale), size=100) for loc, scale in zip(mu, std)]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test, samples)
         crps_test = crps_comps[0]
@@ -196,10 +236,13 @@ def run_single_argument(task_id):
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[str(q)] = norm.ppf(q, loc=mu, scale=var)
+            quantile_preds[str(q)] = norm.ppf(q, loc=mu, scale=std)
             q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
-        
+
+        # Log predictions for each fold
+        log_predictions(fold, dset_name, y_test.values, mu, std, quantile_preds, f"logs/openml/predictions/{method_name}.csv")
+
         # Compute the average of the quantile losses (WQL as an average)
         wql_avg_fold = np.mean(quantile_losses)
 
@@ -221,7 +264,7 @@ if __name__ == "__main__":
     print("Task number: " + str(task_number))
     vsc_data = os.environ['VSC_DATA']
     results = run_single_argument(task_number)
-    file_path = "logs/openml/openml_gpboost.csv"
+    file_path = f"results/openml/openml_{method_name}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)
