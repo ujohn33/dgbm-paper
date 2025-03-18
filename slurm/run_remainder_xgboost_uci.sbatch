@@ -1,19 +1,11 @@
 #!/bin/bash
-
 #SBATCH --output=./report/%A_ExtraXGLSS_uci/slurm-%A_%a.out # STDOUT
-
 #SBATCH --job-name=leftover_XGLSS_year_MSD
-
 #SBATCH --time=3-00:00:00
-
 #SBATCH --ntasks-per-node=1
-
 #SBATCH --partition=skylake,skylake_mpi
-
-#SBATCH --mem-per-cpu=120G
-
-#SBATCH --array=0-5
-
+#SBATCH --mem-per-cpu=60G
+#SBATCH --array=3
 #SBATCH --mail-type=ALL
 
 
@@ -31,7 +23,7 @@ module load Optuna/3.5.0-foss-2023a
 module load SciPy-bundle/2023.07-gfbf-2023a
 module load Pillow/10.0.0-GCCcore-12.3.0
 
-source $VSC_SCRATCH/distiboost_311/bin/activate
+source $VSC_SCRATCH/gpu_friendly/bin/activate
 
 cd /scratch/brussel/105/vsc10528/LSSboost
 

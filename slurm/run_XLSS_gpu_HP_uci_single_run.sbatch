@@ -1,12 +1,12 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_XLSSboost_openml/slurm-%A_%a.out # STDOUT
-#SBATCH --job-name=LSSboost_openml
+#SBATCH --output=./report/%A_XLSSboost_uci_r/slurm-%A_%a.out # STDOUT
+#SBATCH --job-name=XGBLSS_uci_r
 #SBATCH --time=1-12:00:00
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=1
 #SBATCH --mem-per-cpu=100G
-#SBATCH --array=8
+#SBATCH --array=9
 #SBATCH --mail-type=ALL
 
 
@@ -35,19 +35,17 @@ nvidia-smi >logs/openml/gpu_lgblss_info.txt
 # start monitoring GPU usage:
 nvidia-smi pmon -o DT -s um >logs/openml/gpu_lgblss_usage.txt &
 
+# Define variables
 mode='exp'
 natural_grad='False'
 stabilization='None'
-
-# Define variables
-# mode='exp'
-# natural_grad='False'
-# stabilization='L2'
+quantile_clipping='True'
+dataset= $SLURM_ARRAY_TASK_ID
 
 # Echo the parameters for logging
-echo "Running with mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization"
+echo "Running with dataset=$SLURM_ARRAY_TASK_ID, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, quantile_clipping=$quantile_clipping"
 
-python uci/UCI_xglssboost_HP_single_run.py $SLURM_ARRAY_TASK_ID $mode $natural_grad $stabilization
+python uci/UCI_xglssboost_HP_single_run.py $SLURM_ARRAY_TASK_ID $mode $natural_grad $stabilization $quantile_clipping
 
 # stop monitoring GPU usage:
 killall nvidia-smi

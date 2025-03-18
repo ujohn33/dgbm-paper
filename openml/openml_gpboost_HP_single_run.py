@@ -143,6 +143,7 @@ def run_single_argument(task_id):
     study.optimize(objective_tuning, n_trials=20, timeout=86400)
     end_time = time.time()  # End time measurement
     elapsed_time_HP = end_time - start_time  # Calculate elapsed time
+    print(f'Hyperparameter tuning time: {elapsed_time_HP:.2f} seconds')
 
     # Set the best parameters and number of estimators from hyperparameter tuning
     best_params = study.best_params
@@ -227,7 +228,6 @@ def run_single_argument(task_id):
         lss_crps_cal.append(crps_cal)
         lss_crps_sha.append(crps_sha)
         times += [training_time]
-        times_HP += [elapsed_time_HP]
 
         # Define the quantiles to evaluate
         quantiles = [0.1, 0.5, 0.9]
@@ -253,7 +253,7 @@ def run_single_argument(task_id):
 
     print(f'Completed dataset: {dset_name}')
     # return a dictonary of val
-    return  dset_name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), np.mean(times_HP), np.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
+    return  dset_name, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), elapsed_time_HP, np.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
 
 
 

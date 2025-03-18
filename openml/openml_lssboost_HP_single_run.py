@@ -23,27 +23,24 @@ np.random.seed(123)
 # Set OpenML API key
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
-# Random seed
-np.random.seed(1)
-
 # Get command-line arguments
 if len(sys.argv) != 6:
-    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization> <quantile_clipping>")
+    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization> <stabilization> <quantile_clipping>")
     sys.exit(1)
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
 stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
-quantile_clipping = sys.argv[5].lower() == 'true'
-clip_value = None
+clip = sys.argv[5].lower() == 'true'
+#quantile_clipping = sys.argv[5].lower() == 'true'
 
 # Define constants and parameters
 args = {
     "mode": mode,
     "natural_grad": natural_grad,
     "stabilization": stabilization, # None, 'L2', "MAD"
-    "quantile_clipping": quantile_clipping,
-    "clip_value": clip_value,
+    #"quantile_clipping": quantile_clipping,
+    "clip_value": None,
     "SUITE_ID": 336, # Regression on numerical features
     "n_est": 2000,
     "n_trials": 80,
@@ -52,10 +49,12 @@ args = {
     "distn": "Normal",
 }
 
+
 if natural_grad:
-    method_name = f'LSSboost_natural_{mode}_{stabilization}_{quantile_clipping}_l'
+    method_name = f'LSSboost_natural_{mode}_{stabilization}_{clip}_clip'
 else:
-    method_name = f'LSSboost_no_natural_{mode}_{stabilization}_{quantile_clipping}_l'
+    method_name = f'LSSboost_no_natural_{mode}_{stabilization}_{clip}_clip'
+
 
 # Obtain the benchmark suite from OpenML
 benchmark_suite = openml.study.get_suite(args['SUITE_ID'])  # obtain the benchmark suite
@@ -67,11 +66,14 @@ param_dict = {
     "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "feature_pre_filter": ["categorical", [False]],
-    'device':  ["categorical", ['cuda']],
+    'device':  ["categorical", ['cpu']],
+    'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
     #'deterministic': ["categorical", [True]],
     #'min_child_weight': ["categorical", [1]],
     #"histogram_pool_size": ["categorical", [16384]],
 }
+if clip == False:
+    del param_dict['clip_value']
 
 def run_single_argument(task_id):
     task = openml.tasks.get_task(task_id)  # download the OpenML task
@@ -99,13 +101,14 @@ def run_single_argument(task_id):
 
     start_time = time.time()  # Start time measurement
 
-    lgblss = LightGBMLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", natural_gradient=args['natural_grad']))
-    lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
+    lgblss = LightGBMLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", natural_gradient=args['natural_grad']
+                                  , clip_value=args['clip_value']))
+    #lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
+    lgblss.start_values = np.array([np.mean(y_train_opt), np.std(y_train_opt)])
 
-    np.random.seed(123)
     opt_param = lgblss.hyper_opt(param_dict, dtrain, num_boost_round=args["n_est"],
-                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=args['n_trials'],
-                                    silence=True, seed=1, hp_seed=1)
+                                    nfold=args['n_splits'], early_stopping_rounds=args["n_est"], max_minutes=1440, n_trials=args['n_trials'],
+                                    silence=True, seed=123, hp_seed=123)
 
     end_time = time.time()  # End time measurement
     elapsed_time_HP = end_time - start_time  # Calculate elapsed time
@@ -119,7 +122,9 @@ def run_single_argument(task_id):
         with open(f'logs/openml/lssboost/normal/exp/{dataset.name}_opt_params.json', 'w') as f:
             json.dump(opt_params, f)
     
-    n_rounds = opt_params["opt_rounds"]
+    print("OPT PARAM OUTPUT:", opt_param)  # Debugging print
+    n_rounds = opt_param.get("opt_rounds", 100)  # Default to 100 if missing
+    #n_rounds = opt_params["opt_rounds"]
     del opt_params["opt_rounds"]
 
     # Evaluate the optimized parameters on the remaining folds

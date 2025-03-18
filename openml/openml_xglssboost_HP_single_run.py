@@ -26,14 +26,20 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 np.random.seed(1)
 
 # Get command-line arguments
-if len(sys.argv) != 5:
-    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization>")
+if len(sys.argv) != 6:
+    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization> <quantile_clipping>")
     sys.exit(1)
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
 stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
-method_name = 'XGBoostLSS'
+quantile_clipping = sys.argv[5].lower() == 'true'
+clip_value = None
+
+if natural_grad:
+    method_name = f"XGBoostLSS_natural_{mode}_{stabilization}_{quantile_clipping}_qclip"
+else:
+    method_name = f"XGBoostLSS_no_natural_{mode}_{stabilization}_{quantile_clipping}_qclip"
 
 # Define constants and parameters
 args = {
@@ -41,6 +47,8 @@ args = {
     "mode": mode,
     "stabilization": stabilization, #"MAD", "L2", None
     "natural_grad": natural_grad, #True, False
+    "quantile_clipping": quantile_clipping, #True, False
+    "clip_value": clip_value,
     "n_est": 2000,
     "n_splits": 5,
     "score": "MLE",
@@ -55,7 +63,9 @@ param_dict = {
     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "min_child_weight": ["int", {"low": 1, "high": 100, "log": True}],
     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
-    "subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}]
+    "subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}],
+    'device':  ["categorical", ['cuda']],
+    'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
 }
 
 def encode_categorical_columns(df):
@@ -91,7 +101,9 @@ def run_single_argument(task_id):
 
     start_time = time.time()  # Start time measurement
 
-    xgblss = XGBoostLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", natural_gradient=args["natural_grad"]))
+    xgblss = XGBoostLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", 
+                                 natural_gradient=args["natural_grad"], quantile_clipping=args["quantile_clipping"],
+                                 clip_value=args["clip_value"]))
     xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
     np.random.seed(123)
@@ -226,9 +238,9 @@ if __name__ == "__main__":
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     results = run_single_argument(task_number)
     if args['natural_grad']:
-        file_path = f"logs/openml/openml_XGBoostLSS_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
+        file_path = f"results/openml/openml_{method_name}.csv"
     else:
-        file_path = f"logs/openml/openml_XGBoostLSS_no_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
+        file_path = f"results/openml/openml_{method_name}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

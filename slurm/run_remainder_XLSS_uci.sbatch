@@ -25,7 +25,7 @@ module load SciPy-bundle/2023.07-gfbf-2023a
 module load Pillow/10.0.0-GCCcore-12.3.0
 module load openpyxl/3.1.2-GCCcore-12.3.0
 
-source $VSC_SCRATCH/distiboost_311/bin/activate
+source $VSC_SCRATCH/gpu_friendly/bin/activate
 
 cd /scratch/brussel/105/vsc10528/LSSboost
 

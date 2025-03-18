@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_LSSboost_openml/slurm-%A_%a.out # STDOUT
-#SBATCH --job-name=LSSboost_openml
+#SBATCH --output=./report/%A_LSSboost_uci/slurm-%A_%a.out # STDOUT
+#SBATCH --job-name=LSSboost_o
 #SBATCH --time=1-12:00:00
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=1

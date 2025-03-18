@@ -1,12 +1,12 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_LSSboost_openml/slurm-%A_%a.out # STDOUT
-#SBATCH --job-name=LSSboost_openml
-#SBATCH --time=1-12:00:00
+#SBATCH --output=./report/%A_LSSboost_UCI/slurm-%A_%a.out # STDOUT
+#SBATCH --job-name=LSSboost_UCI
+#SBATCH --time=2-12:00:00
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=1
 #SBATCH --mem-per-cpu=60G
-#SBATCH --array=0-37
+#SBATCH --array=0-19
 #SBATCH --mail-type=ALL
 
 
@@ -31,20 +31,15 @@ source $VSC_SCRATCH/gpu_friendly/bin/activate
 
 cd /scratch/brussel/105/vsc10528/LSSboost
 
-export OPENML_SKIP_PARQUET=true
-
-chmod 755 ~/.config/openml
-
 # print GPU info:
-nvidia-smi >logs/openml/gpu_lgblss_info.txt
+nvidia-smi >logs/uci/gpu_lgblss_info.txt
 # start monitoring GPU usage:
-nvidia-smi pmon -o DT -s um >logs/openml/gpu_lgblss_usage.txt &
+nvidia-smi pmon -o DT -s um >logs/uci/gpu_lgblss_usage.txt &
 
 #datasets=(10 11 12 13 14 15 16 17)
-datasets=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18)
+datasets=(0 1 2 3 4 5 6 7 8 9)
 natural_grad_values=("True" "False")
 
-OPENML_SKIP_PARQUET=true
 num_datasets=${#datasets[@]}
 num_param_combinations=${#natural_grad_values[@]}
 
@@ -58,12 +53,12 @@ natural_grad=${natural_grad_values[$ng_index]}
 # Fixed values
 mode="exp"
 stabilization="None"
-clipping="False"
+quantile_clipping="False"
 
 # Echo the parameters and dataset for logging
-echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clipping"
+echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, quantile_clipping=$quantile_clipping"
 
-python openml/openml_lssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $clipping
+python uci/UCI_lssboost_single_run_HP.py $dataset $mode $natural_grad $stabilization $quantile_clipping
 
 # stop monitoring GPU usage:
 killall nvidia-smi

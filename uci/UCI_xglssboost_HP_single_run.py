@@ -1,4 +1,3 @@
-import openml
 import os
 import sys
 import json
@@ -20,18 +19,20 @@ from utils.safety import apply_safety_net
 np.random.seed(123)
 
 # Get command-line arguments
-if len(sys.argv) != 5:
-    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization>")
+if len(sys.argv) != 6:
+    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization> <quantile_clipping>")
     sys.exit(1)
-
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
-stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None
+stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
+quantile_clipping = sys.argv[5].lower() == 'true'
+clip_value = None
+
 if natural_grad:
-    method_name = f'LSSboost_natural_{mode}_{stabilization}'
+    method_name = f"XGBoostLSS_natural_{mode}_{stabilization}_{quantile_clipping}_qclip"
 else:
-    method_name = f'LSSboost_no_natural_{mode}_{stabilization}'
+    method_name = f"XGBoostLSS_no_natural_{mode}_{stabilization}_{quantile_clipping}_qclip"
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -72,6 +73,8 @@ args = {
     "dataset": None,
     "mode": mode,
     "natural_grad": natural_grad,
+    "quantile_clipping": quantile_clipping, #True, False
+    "clip_value": clip_value,
     "stabilization": stabilization, # None, 'L2', "MAD"    
     "n_est": 2000,
     "n_splits": 20,
@@ -81,11 +84,12 @@ args = {
 
 # Define your hyperparameter space
 param_dict = {
-    "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
-    "min_child_weight": ["int", {"low": 1, "high": 100, "log": False}],
+    "min_child_weight": ["int", {"low": 1, "high": 100, "log": True}],
+    "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
     "subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}],
     'device':  ["categorical", ['cuda']],
+    'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
 }
 
 
@@ -121,11 +125,11 @@ def run_single_arguement(run_seed):
             folds.append((train_index, test_index))        
     else:
         if args["dataset"] == "Concrete Compression Strength":
-            args["n_est"] = 2000
+            args["n_est"] = 200
         elif args["dataset"] == "Energy Efficiency":
-            args["n_est"] = 2000
+            args["n_est"] = 200
         elif args["dataset"] == "Boston Housing":
-            args["n_est"] = 2000
+            args["n_est"] = 200
         else:
             pass
         kf = KFold(n_splits=args["n_splits"])
@@ -160,12 +164,14 @@ def run_single_arguement(run_seed):
         full_train_data = xgb.DMatrix(X_trainall, label=y_trainall)
 
         start_time = time.time()
-        xgblss = XGBoostLSS(Gaussian(stabilization=args["stabilization"], response_fn=args['mode'], loss_fn="nll", natural_gradient=args['natural_grad']))
+        xgblss = XGBoostLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", 
+                                 natural_gradient=args["natural_grad"], quantile_clipping=args["quantile_clipping"],
+                                 clip_value=args["clip_value"]))
         # Modify start values     
         xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
         opt_param = xgblss.hyper_opt(param_dict, full_train_data, num_boost_round=args["n_est"],
-                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=20,
+                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=80, n_trials=20,
                                     silence=True, seed=1, hp_seed=1)
         opt_params = opt_param.copy()
 
@@ -281,9 +287,9 @@ if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
     if args['natural_grad']:
-        file_path = f"results/uci/uci_XGLSSboost_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
+        file_path = f"results/uci/uci_{method_name}.csv"
     else:
-        file_path = f"results/uci/uci_XGLSSboost_no_natural_{str(args['mode'])}_{str(args['stabilization'])}.csv"
+        file_path = f"results/uci/uci_{method_name}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)
