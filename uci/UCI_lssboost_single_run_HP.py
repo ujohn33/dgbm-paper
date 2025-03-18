@@ -91,12 +91,13 @@ args = {
 # Define your hyperparameter space
 param_dict = {
     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
-    "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
+    #"max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
     "feature_pre_filter": ["categorical", [False]],
     'device':  ["categorical", ['cuda']],
+    'max_bin': ["int", {"low": 16, "high": 255, "log": False}],
     # "min_child_weight": ["categorical", [1.0]],
     # "device": ["categorical", ['gpu']]
 }
@@ -188,9 +189,16 @@ def run_single_arguement(run_seed):
         )
         # Modify start values     
         lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
+        
+        # Modify parameter dictionary for Year Prediciton MSD dataset
+        current_param_dict = param_dict.copy()
+        if dset == "Year Prediciton MSD":
+            current_param_dict["bagging_fraction"] = ["categorical", [0.1]]
+        else:
+            current_param_dict = param_dict
 
-        opt_param = lgblss.hyper_opt(param_dict, full_train_data, num_boost_round=args["n_est"],
-                                    nfold=args['n_splits'], early_stopping_rounds=5, max_minutes=80, n_trials=10,
+        opt_param = lgblss.hyper_opt(current_param_dict, full_train_data, num_boost_round=args["n_est"],
+                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=20,
                                     silence=True, seed=1, hp_seed=1)
         opt_params = opt_param.copy()
 

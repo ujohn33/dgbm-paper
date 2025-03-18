@@ -77,21 +77,32 @@ def rmseloss_metric(yhat, y, sample_weight=None):
 
 # Define the Optuna objective class for hyperparameter tuning
 class Objective(object):
-    def __init__(self, X_train, y_train):
+    def __init__(self, X_train, y_train, dataset_name):
         self.X_train = X_train
         self.y_train = y_train
+        self.dataset_name = dataset_name
         
     def __call__(self, trial):
         try:
+            # Set bagging_fraction based on dataset
+            if self.dataset_name == "Year Prediciton MSD":
+                bagging_fraction = 0.1
+            else:
+                bagging_fraction = trial.suggest_uniform('bagging_fraction', 0.5, 1.0)
+                
             params = {
-                'n_estimators': 200,
-                'bagging_fraction': trial.suggest_uniform('bagging_fraction', 0.5, 1.0),
+                'n_estimators': 2000,
+                'bagging_fraction': bagging_fraction,
                 'learning_rate': trial.suggest_loguniform('learning_rate', 1e-4, 0.1),
-                'max_leaves': trial.suggest_int('max_leaves', 16, 64),
-                'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 20, 100),  # Constant for this example
-                'n_estimators': trial.suggest_int('n_estimators', 20, 200),
-                'device': trial.suggest_categorical('device', ['gpu']),
-                'verbose': trial.suggest_categorical('verbose', [2]),
+                'max_leaves': trial.suggest_int('max_leaves', 8, 32),
+                'max_bin': trial.suggest_int('max_bin', 32, 128),
+                'max_depth': -1,
+                'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 1, 20),  # Constant for this example
+                'device': 'gpu',
+                'verbose': 2,
+                'feature_fraction':  1,
+                'derivatives': 'exact',
+                'distribution': 'normal',
             }
             model = PGBMRegressor()
             model.set_params(**params)
@@ -168,7 +179,7 @@ def run_single_argument(run_seed):
         start_time = time.time()
         print('Hyperparameter tuning...')
         study = optuna.create_study(direction='maximize')
-        objective_tuning = Objective(X_train, y_train)
+        objective_tuning = Objective(X_train, y_train, args['dataset'])
         time_limit = 86400/len(folds)
         study.optimize(objective_tuning, n_trials=20)
         end_time = time.time()  # End time measurement
