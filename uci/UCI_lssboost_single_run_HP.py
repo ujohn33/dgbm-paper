@@ -120,17 +120,17 @@ def run_single_arguement(run_seed):
         kf = KFold(n_splits=5)
         folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
-        n = X.shape[0]
-        np.random.seed(1)
-        folds = []
-        for i in range(5):
-            permutation = np.random.choice(range(n), n, replace=False)
-            end_train = round(n * 9.0 / 10)
-            end_test = n
+        # n = X.shape[0]
+        # np.random.seed(1)
+        # folds = []
+        # for i in range(5):
+        #     permutation = np.random.choice(range(n), n, replace=False)
+        #     end_train = round(n * 9.0 / 10)
+        #     end_test = n
 
-            train_index = permutation[0:end_train]
-            test_index = permutation[end_train:n]
-            folds.append((train_index, test_index))        
+        #     train_index = permutation[0:end_train]
+        #     test_index = permutation[end_train:n]
+        #     folds.append((train_index, test_index))        
     else:
         # default_params = {
         #     "max_depth":                9,
@@ -148,18 +148,18 @@ def run_single_arguement(run_seed):
             pass
         kf = KFold(n_splits=args["n_splits"])
         folds = kf.split(X)
-        # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
-        n = X.shape[0]
-        np.random.seed(1)
-        folds = []
-        for i in range(args['n_splits']):
-            permutation = np.random.choice(range(n), n, replace=False)
-            end_train = round(n * 9.0 / 10)
-            end_test = n
+        # # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
+        # n = X.shape[0]
+        # np.random.seed(1)
+        # folds = []
+        # for i in range(args['n_splits']):
+        #     permutation = np.random.choice(range(n), n, replace=False)
+        #     end_train = round(n * 9.0 / 10)
+        #     end_test = n
 
-            train_index = permutation[0:end_train]
-            test_index = permutation[end_train:n]
-            folds.append((train_index, test_index))
+        #     train_index = permutation[0:end_train]
+        #     test_index = permutation[end_train:n]
+        #     folds.append((train_index, test_index))
 
 
     for itr, (train_index, test_index) in enumerate(folds):
@@ -183,7 +183,6 @@ def run_single_arguement(run_seed):
                     response_fn = args['mode'],
                     loss_fn = "nll",
                     natural_gradient = args['natural_grad'],
-                    quantile_clipping = args['quantile_clipping'],
                     clip_value = args['clip_value'],
                     )
         )

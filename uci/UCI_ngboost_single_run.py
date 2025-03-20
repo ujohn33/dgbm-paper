@@ -1,24 +1,20 @@
 import os
 import sys
-import csv
-import json
 from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 import time
+import csv
 from scipy.stats import norm as norm_dist
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
-from sklearn.tree import DecisionTreeRegressor
 from ngboost.distns import Bernoulli, Normal
 from ngboost.scores import LogScore
 from ngboost import NGBRegressor
 from ngboost.learners import default_linear_learner, default_tree_learner
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils.metrics import crps, quantile_loss
-
-np.random.seed(1)
+from utils.metrics import crps
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -65,16 +61,14 @@ args = {
     "n_splits": 20,
     "distn": "Normal",
     "lr": 0.01,
-    "natural_grad": True,
+    "natural": True,
     "score": "LogScore",
+    "base": "tree",
     "minibatch_frac": 1.0,
     "verbose": True,
+    'random_state': 1,
+    "seed": 1,
 }
-
-b1 = DecisionTreeRegressor(criterion='squared_error', max_depth=2)
-b2 = DecisionTreeRegressor(criterion='squared_error', max_depth=3)
-b3 = DecisionTreeRegressor(criterion='squared_error', max_depth=4)
-base_learner_choices = [b1, b2, b3]
 
 
 def run_single_arguement(run_seed):
@@ -83,7 +77,6 @@ def run_single_arguement(run_seed):
     args["dataset"] = dset
     y_true, ngb_rmse, ngb_nll, times = [], [], [], []
     ngb_crps, ngb_crps_cal, ngb_crps_sha = [], [], []
-    wql_01, wql_05, wql_09, wql_avg = [], [], [], []
 
     # Load dataset -- use last column as label
     data = dataset_name_to_loader[args['dataset']]()
@@ -93,17 +86,17 @@ def run_single_arguement(run_seed):
 
     lgbm_rmse = []
     if args["dataset"] == "Year Prediciton MSD":
-        #args["lr"] = 0.1
+        args["lr"] = 0.1
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
-        #args["minibatch_frac"] = 0.1 
+        args["minibatch_frac"] = 0.1 
     elif args["dataset"] == "Protein Structure":
-        #args["lr"] = 0.01
-        #args["minibatch_frac"] = 1.0
-        kf = KFold(n_splits=5)
-        folds = kf.split(X)
+        args["lr"] = 0.01
+        args["minibatch_frac"] = 1.0
+        # kf = KFold(n_splits=5, random_state=args["seed"])
+        # folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
         n = X.shape[0]
-        np.random.seed(1)
+        np.random.seed(args["random_state"])
         folds = []
         for i in range(5):
             permutation = np.random.choice(range(n), n, replace=False)
@@ -114,24 +107,23 @@ def run_single_arguement(run_seed):
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))        
     else:
-        # if args["dataset"] == "Concrete Compression Strength":
-        #     args["lr"] = 0.002
-        #     args["n_est"] = 5000
-        # elif args["dataset"] == "Energy Efficiency":
-        #     args["lr"] = 0.002
-        #     args["n_est"] = 5000
-        # elif args["dataset"] == "Boston Housing":
-        #     args["lr"] = 0.0007
-        #     args["n_est"] = 5000
-        # else:
-        #     args["lr"] = 0.01
-        # args["minibatch_frac"] = 1.0 
-        pass
-        kf = KFold(n_splits=args["n_splits"])
-        folds = kf.split(X)
+        if args["dataset"] == "Concrete Compression Strength":
+            args["lr"] = 0.002
+            args["n_est"] = 5000
+        elif args["dataset"] == "Energy Efficiency":
+            args["lr"] = 0.002
+            args["n_est"] = 5000
+        elif args["dataset"] == "Boston Housing":
+            args["lr"] = 0.0007
+            args["n_est"] = 5000
+        else:
+            args["lr"] = 0.01
+        args["minibatch_frac"] = 1.0 
+        # kf = KFold(n_splits=args["n_splits"], random_state=args["seed"])
+        # folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
         n = X.shape[0]
-        np.random.seed(1)
+        np.random.seed(args["random_state"])
         folds = []
         for i in range(args['n_splits']):
             permutation = np.random.choice(range(n), n, replace=False)
@@ -142,19 +134,6 @@ def run_single_arguement(run_seed):
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))
 
-    # if args['natural_grad']:
-    #     pset_path = f'logs/ngboost/natural/exp/{dset}_opt_params.json'
-    #     # Check if the file exists
-    #     if not os.path.isfile(pset_path):
-    #         raise FileNotFoundError(f"The JSON file {pset_path} does not exist.")
-    #     # Check if the file is empty
-    #     if os.path.getsize(pset_path) == 0:
-    #         raise ValueError(f"The JSON file {pset_path} is empty.")
-    #     with open(pset_path) as pset:
-    #         opt_params = json.load(pset)
-    # else:
-    #     with open(f'logs/ngboost/normal/exp/{dset}_opt_params.json') as pset:
-    #         opt_params = json.load(pset)
 
     for itr, (train_index, test_index) in enumerate(folds):
         # print('train_index: ')
@@ -166,20 +145,20 @@ def run_single_arguement(run_seed):
         y_trainall, y_test = y[train_index], y[test_index]
 
         X_train, X_val, y_train, y_val = train_test_split(
-            X_trainall, y_trainall, test_size=0.2
+            X_trainall, y_trainall, test_size=0.2, random_state=args["seed"]
         )
 
         y_true += list(y_test.flatten())
 
 
         ngb = NGBRegressor(
-            Base=base_learner_choices[opt_params["Base"]],
+            Base=base_name_to_learner[args["base"]],
             Dist=eval(args["distn"]),
             Score=eval(args["score"]),
-            n_estimators=opt_params["n_estimators"],
-            learning_rate=opt_params["lr"],
-            natural_gradient=args["natural_grad"],
-            minibatch_frac=opt_params["minibatch_frac"],
+            n_estimators=args["n_est"],
+            learning_rate=args["lr"],
+            natural_gradient=args["natural"],
+            minibatch_frac=args["minibatch_frac"],
             verbose=args["verbose"],
         )
 
@@ -197,12 +176,12 @@ def run_single_arguement(run_seed):
 
         # re-train using all the data after tuning number of iterations
         ngb = NGBRegressor(
-            Base=base_learner_choices[opt_params["Base"]],
+            Base=base_name_to_learner[args["base"]],
             Dist=eval(args["distn"]),
             Score=eval(args["score"]),
-            n_estimators=opt_params["n_estimators"],
+            n_estimators=args["n_est"],
             learning_rate=args["lr"],
-            natural_gradient=args["natural_grad"],
+            natural_gradient=args["natural"],
             minibatch_frac=args["minibatch_frac"],
             verbose=args["verbose"],
         )
@@ -232,26 +211,6 @@ def run_single_arguement(run_seed):
         ngb_crps_cal += [crps_comps[1]]
         ngb_crps_sha += [crps_comps[2]]
         times += [elapsed_time]
-
-        # Define the quantiles to evaluate
-        quantiles = [0.1, 0.5, 0.9]
-
-        # Compute the quantiles for each observation
-        quantile_preds = {}
-        quantile_losses = []
-        for q in quantiles:
-            quantile_preds[q] = norm.ppf(q, loc=forecast['loc'], scale=forecast['scale'])
-            q_loss = quantile_loss(q, y_test, quantile_preds[q]).mean()
-            quantile_losses.append(q_loss)
-        
-        # Compute the average of the quantile losses (WQL as an average)
-        wql_avg_fold = np.mean(quantile_losses)
-
-        wql_01 += [quantile_losses[0]]
-        wql_05 += [quantile_losses[1]]
-        wql_09 += [quantile_losses[2]]
-        wql_avg += [wql_avg_fold]
-
 
         print(
                 "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_CAL=%.4f CRPS_SHA=%.4f TIME=%.4f"
@@ -287,16 +246,14 @@ def run_single_arguement(run_seed):
                 np.mean(times)  # Include elapsed time in the output
             )
         )
-    return  dset, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), np.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
+    return dset, np.mean(ngb_rmse), np.std(ngb_rmse), np.mean(ngb_nll), np.std(ngb_nll), np.mean(ngb_crps), np.std(ngb_crps), np.mean(ngb_crps_cal), np.std(ngb_crps_cal), np.mean(ngb_crps_sha), np.std(ngb_crps_sha), np.mean(times)
 
 if __name__ == "__main__":
+    header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run"]
     vsc_data = os.environ['VSC_DATA']
+    print(sys.argv)
     results = run_single_arguement(sys.argv[1])
-    if args['natural_grad']:
-        file_path = "logs/uci/uci_ngboost_with_wql_natural.csv"
-    else:
-        file_path = "logs/uci/uci_ngboost_with_wql_normal.csv"
-    header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
+    file_path = "results/NGboost_natural_crps_calibration_sharpness.csv"
     # Check if the file exists
     file_exists = os.path.isfile(file_path)
     # Open the file in append mode ('a+')
@@ -307,12 +264,5 @@ if __name__ == "__main__":
         if not file_exists or os.stat(file_path).st_size == 0:
             writer.writerow(header)  # Write header
 
-        # Write the results to the file as a list
-        row_to_write = [results[0], results[1], results[2], results[3], results[4],
-                        results[5], results[6], results[7], results[8], results[9],
-                        results[10], results[11], results[12], results[13],
-                        results[14], results[15], results[16], results[17],
-                        results[18], results[19], results[20]]
-
+        row_to_write = [results[0], results[1], results[2], results[3], results[4], results[5], results[6], results[7], results[8], results[9], results[10], results[11]]
         writer.writerow(row_to_write)
-   
