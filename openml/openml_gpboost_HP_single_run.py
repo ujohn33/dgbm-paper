@@ -78,16 +78,16 @@ class Objective(object):
         delta_conv = trial.suggest_float('delta_rel_conv', 1e-4, 0.1)
         dtrain = gpb.Dataset(self.X_train, self.y_train)
         try:
-            if approx:
+            if self.approx:
                 # Use gp_coords instead of group_data
-                gp_model = gpb.GPModel(gp_coords=coords_train, likelihood="gaussian", gp_approx = "vecchia")
+                gp_model = gpb.GPModel(gp_coords=self.coords_train, likelihood="gaussian", gp_approx = "vecchia")
                 gp_model.set_optim_params(params={"optimizer_cov": "nelder_mead"})
                 params['num_neighbors'] = trial.suggest_int('num_neighbours', 10, 50, step=10)
                 gp_model.set_optim_params(params={"delta_rel_conv": delta_conv})
                 cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=NUM_ROUNDS, nfold=5, early_stopping_rounds=10,  train_gp_model_cov_pars=False)
             else:
                 # Use gp_coords instead of group_data
-                gp_model = gpb.GPModel(gp_coords=coords_train, likelihood="gaussian")
+                gp_model = gpb.GPModel(gp_coords=self.coords_train, likelihood="gaussian")
                 cv_results = gpb.cv(params, dtrain, gp_model=gp_model, num_boost_round=NUM_ROUNDS, nfold=5, early_stopping_rounds=10)
 
             return np.mean(cv_results['test_neg_log_likelihood-mean'])

@@ -53,7 +53,7 @@ dataset_name_to_loader = {
 }
 
 dataset_list = ["Boston Housing", "Concrete Compression Strength", "Energy Efficiency", "Kin8nm", "Naval Propulsion", "Combined Cycle Power Plant", "Protein Structure", "Wine Quality Red", "Yacht Hydrodynamics", "Year Prediciton MSD"]
-n_forecasts = 200
+n_forecasts = 1000
 method_name = "pgbm"
 
 # Hardcoded parameters for testing

@@ -16,23 +16,22 @@ from utils.metrics import crps, quantile_loss
 from utils.logging import log_predictions
 from utils.safety import apply_safety_net
 
-np.random.seed(123)
+print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization> <clip value>")
 
-# Get command-line arguments
-if len(sys.argv) != 6:
-    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization> <quantile_clipping>")
-    sys.exit(1)
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
 stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
-quantile_clipping = sys.argv[5].lower() == 'true'
-clip_value = None
+# turn "None" into None
+# if clip_value not provided, clip_value is None
+clip_value = None if len(sys.argv) <= 5 or sys.argv[5] == 'None' else float(sys.argv[5])
+
+
 
 if natural_grad:
-    method_name = f"XGBoostLSS_natural_{mode}_{stabilization}_{quantile_clipping}_qclip"
+    method_name = f"XGBoostLSS_natural_{mode}_{stabilization}_{clip_value}_clip"
 else:
-    method_name = f"XGBoostLSS_no_natural_{mode}_{stabilization}_{quantile_clipping}_qclip"
+    method_name = f"XGBoostLSS_no_natural_{mode}_{stabilization}_{clip_value}_clip"
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -73,13 +72,13 @@ args = {
     "dataset": None,
     "mode": mode,
     "natural_grad": natural_grad,
-    "quantile_clipping": quantile_clipping, #True, False
     "clip_value": clip_value,
     "stabilization": stabilization, # None, 'L2', "MAD"    
     "n_est": 2000,
     "n_splits": 20,
     "score": "MLE",
     "distn": "Normal",
+    "random_state": 1,
 }
 
 # Define your hyperparameter space
@@ -89,7 +88,6 @@ param_dict = {
     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
     "subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}],
     'device':  ["categorical", ['cuda']],
-    'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
 }
 
 
@@ -109,20 +107,20 @@ def run_single_arguement(run_seed):
     if args["dataset"] == "Year Prediciton MSD":
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
     elif args["dataset"] == "Protein Structure":
-        kf = KFold(n_splits=5)
-        folds = kf.split(X)
+        # kf = KFold(n_splits=5)
+        # folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
-        # n = X.shape[0]
-        # np.random.seed(1)
-        # folds = []
-        # for i in range(5):
-        #     permutation = np.random.choice(range(n), n, replace=False)
-        #     end_train = round(n * 9.0 / 10)
-        #     end_test = n
+        n = X.shape[0]
+        np.random.seed(args['random_state'])
+        folds = []
+        for i in range(5):
+            permutation = np.random.choice(range(n), n, replace=False)
+            end_train = round(n * 9.0 / 10)
+            end_test = n
 
-        #     train_index = permutation[0:end_train]
-        #     test_index = permutation[end_train:n]
-        #     folds.append((train_index, test_index))        
+            train_index = permutation[0:end_train]
+            test_index = permutation[end_train:n]
+            folds.append((train_index, test_index))        
     else:
         if args["dataset"] == "Concrete Compression Strength":
             args["n_est"] = 200
@@ -132,20 +130,20 @@ def run_single_arguement(run_seed):
             args["n_est"] = 200
         else:
             pass
-        kf = KFold(n_splits=args["n_splits"])
-        folds = kf.split(X)
+        # kf = KFold(n_splits=args["n_splits"])
+        # folds = kf.split(X)
         # # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
-        # n = X.shape[0]
-        # np.random.seed(1)
-        # folds = []
-        # for i in range(args['n_splits']):
-        #     permutation = np.random.choice(range(n), n, replace=False)
-        #     end_train = round(n * 9.0 / 10)
-        #     end_test = n
+        n = X.shape[0]
+        np.random.seed(args['random_state'])
+        folds = []
+        for i in range(args['n_splits']):
+            permutation = np.random.choice(range(n), n, replace=False)
+            end_train = round(n * 9.0 / 10)
+            end_test = n
 
-        #     train_index = permutation[0:end_train]
-        #     test_index = permutation[end_train:n]
-        #     folds.append((train_index, test_index))
+            train_index = permutation[0:end_train]
+            test_index = permutation[end_train:n]
+            folds.append((train_index, test_index))
 
 
     for itr, (train_index, test_index) in enumerate(folds):
@@ -158,21 +156,25 @@ def run_single_arguement(run_seed):
         y_trainall, y_test = y[train_index], y[test_index]
 
         X_train, X_val, y_train, y_val = train_test_split(
-            X_trainall, y_trainall, test_size=0.2
+            X_trainall, y_trainall, test_size=0.2, random_state=args['random_state']
         )
 
         full_train_data = xgb.DMatrix(X_trainall, label=y_trainall)
 
         start_time = time.time()
         xgblss = XGBoostLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", 
-                                 natural_gradient=args["natural_grad"], quantile_clipping=args["quantile_clipping"],
-                                 clip_value=args["clip_value"]))
+                                 natural_gradient=args["natural_grad"], clip_value=args["clip_value"]))
         # Modify start values     
-        xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
+        # Change this line
+        if args["dataset"] == "Year Prediciton MSD":
+            # Set start value closer to actual data range
+            xgblss.start_values = np.array([np.array(np.log(np.mean(y_trainall))), np.array(0.5)])
+        else:
+            xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
         opt_param = xgblss.hyper_opt(param_dict, full_train_data, num_boost_round=args["n_est"],
                                     nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=80, n_trials=20,
-                                    silence=True, seed=1, hp_seed=1)
+                                    silence=True, seed=args['random_state'], hp_seed=args['random_state'])
         opt_params = opt_param.copy()
 
         end_time = time.time()  # End time measurement
@@ -196,6 +198,14 @@ def run_single_arguement(run_seed):
         opt_params['early_stopping'] = None
         start_time = time.time()
         best_iter = xgblss.booster.best_iteration
+
+        # Change this line
+        if args["dataset"] == "Year Prediciton MSD":
+            # Set start value closer to actual data range
+            xgblss.start_values = np.array([np.array(np.log(np.mean(y_trainall))), np.array(0.5)])
+        else:
+            xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
+
         final_gbm = xgblss.train(opt_params, full_train_data, 
                             num_boost_round = xgblss.booster.best_iteration,
                         )

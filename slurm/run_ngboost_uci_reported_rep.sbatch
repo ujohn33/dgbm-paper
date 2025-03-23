@@ -3,12 +3,13 @@
 #SBATCH --output=./report/%A_ngboost_uci/slurm-%A_%a.out # STDOUT
 #SBATCH --job-name=ngboost_uci
 #SBATCH --time=1-00:00:00
-#SBATCH --array=0
-#SBATCH --mail-type=ALL
 #SBATCH --ntasks-per-node=1
 #SBATCH --partition=skylake,skylake_mpi
 #SBATCH --mem-per-cpu=60G
 
+#####SBATCH --array=0-9
+#SBATCH --array=0-9
+#SBATCH --mail-type=ALL
 
 module load Python/3.11.3-GCCcore-12.3.0
 module load IPython/8.14.0-GCCcore-12.3.0
@@ -21,8 +22,6 @@ module load openpyxl/3.1.2-GCCcore-12.3.0
 
 source $VSC_SCRATCH/distiboost_311/bin/activate
 
-cd /scratch/brussel/105/vsc10528/LSSboost/ngboost
+cd /scratch/brussel/105/vsc10528/LSSboost
 
-chmod +x scripts/run_empirical_regression.sh
-
-./scripts/run_empirical_regression.sh 
+python uci/UCI_ngboost_single_run.py $SLURM_ARRAY_TASK_ID

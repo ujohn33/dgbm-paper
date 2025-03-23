@@ -88,7 +88,7 @@ class Objective(object):
             if self.dataset_name == "Year Prediciton MSD":
                 bagging_fraction = 0.1
             else:
-                bagging_fraction = trial.suggest_uniform('bagging_fraction', 0.5, 1.0)
+                bagging_fraction = 1.0
                 
             params = {
                 'n_estimators': 2000,
@@ -128,11 +128,11 @@ def run_single_argument(run_seed):
     if args["dataset"] == "Year Prediciton MSD":
         folds = [(np.arange(463715), np.arange(463715, len(X)))]
     elif args["dataset"] == "Protein Structure":
-        kf = KFold(n_splits=5)
-        folds = kf.split(X)
+        # kf = KFold(n_splits=5)
+        # folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
         n = X.shape[0]
-        np.random.seed(1)
+        np.random.seed(args['random_state'])
         folds = []
         for i in range(5):
             permutation = np.random.choice(range(n), n, replace=False)
@@ -143,11 +143,11 @@ def run_single_argument(run_seed):
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))        
     else:
-        kf = KFold(n_splits=args["n_splits"])
-        folds = kf.split(X)
+        # kf = KFold(n_splits=args["n_splits"])
+        # folds = kf.split(X)
         # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
         n = X.shape[0]
-        np.random.seed(1)
+        np.random.seed(args['random_state'])
         folds = []
         for i in range(args['n_splits']):
             permutation = np.random.choice(range(n), n, replace=False)
@@ -163,7 +163,7 @@ def run_single_argument(run_seed):
         #X_train, X_test, y_train, y_test = get_fold(dataset_name, data, fold)
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
-        X_train_val, X_val, y_train_val, y_val = train_test_split(X_train, y_train, test_size=0.2)
+        X_train_val, X_val, y_train_val, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=args['random_state'])
 
         train_data = (X_train, y_train)
         train_val_data = (X_train_val, y_train_val)

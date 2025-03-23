@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=1
 #SBATCH --mem-per-cpu=60G
-#SBATCH --array=0-5
+#SBATCH --array=0-54
 #SBATCH --mail-type=ALL
 
 

@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=1
 #SBATCH --mem-per-cpu=60G
-#SBATCH --array=0-18
+#SBATCH --array=19-20
 #SBATCH --mail-type=ALL
 
 
@@ -53,12 +53,12 @@ natural_grad=${natural_grad_values[$ng_index]}
 # Fixed values
 mode="exp"
 stabilization="None"
-quantile_clipping="False"
+clip_value="None"
 
 # Echo the parameters and dataset for logging
-echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, quantile_clipping=$quantile_clipping"
+echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value"
 
-python uci/UCI_xglssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $quantile_clipping
+python uci/UCI_xglssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization 
 
 # stop monitoring GPU usage:
 killall nvidia-smi

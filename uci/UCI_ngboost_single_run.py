@@ -9,7 +9,7 @@ from scipy.stats import norm as norm_dist
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from ngboost.distns import Bernoulli, Normal
-from ngboost.scores import LogScore
+from ngboost.scores import LogScore, MLE
 from ngboost import NGBRegressor
 from ngboost.learners import default_linear_learner, default_tree_learner
 
@@ -62,7 +62,7 @@ args = {
     "distn": "Normal",
     "lr": 0.01,
     "natural": True,
-    "score": "LogScore",
+    "score": "MLE",
     "base": "tree",
     "minibatch_frac": 1.0,
     "verbose": True,
@@ -246,7 +246,7 @@ def run_single_arguement(run_seed):
                 np.mean(times)  # Include elapsed time in the output
             )
         )
-    return dset, np.mean(ngb_rmse), np.std(ngb_rmse), np.mean(ngb_nll), np.std(ngb_nll), np.mean(ngb_crps), np.std(ngb_crps), np.mean(ngb_crps_cal), np.std(ngb_crps_cal), np.mean(ngb_crps_sha), np.std(ngb_crps_sha), np.mean(times)
+    return dset, np.mean(ngb_rmse), np.std(ngb_rmse), np.mean(ngb_nll), np.std(ngb_nll), np.mean(ngb_crps), np.std(ngb_crps),  np.mean(times)
 
 if __name__ == "__main__":
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run"]
@@ -264,5 +264,5 @@ if __name__ == "__main__":
         if not file_exists or os.stat(file_path).st_size == 0:
             writer.writerow(header)  # Write header
 
-        row_to_write = [results[0], results[1], results[2], results[3], results[4], results[5], results[6], results[7], results[8], results[9], results[10], results[11]]
+        row_to_write = [results[0], results[1], results[2], results[3], results[4], results[5], results[6], results[7]]
         writer.writerow(row_to_write)

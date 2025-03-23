@@ -7,7 +7,7 @@
 #SBATCH --partition=pascal_gpu,ampere_gpu
 #SBATCH --gpus-per-node=1
 #SBATCH --mem-per-cpu=120G
-#SBATCH --array=0-9
+#SBATCH --array=0
 #SBATCH --mail-type=ALL
 
 
@@ -29,6 +29,6 @@ module load openpyxl/3.1.2-GCCcore-12.3.0
 
 source $VSC_SCRATCH/gpu_friendly/bin/activate
 
-cd /scratch/brussel/105/vsc10528/LSSboost
+cd /scratch/brussel/105/vsc10528/LSSboost/pgbm/
 
-python uci/UCI_pgbm_single_run.py $SLURM_ARRAY_TASK_ID
+python paper/experiments/01_uci_benchmark/01_uci_benchmark_pgbm.py
