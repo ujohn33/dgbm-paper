@@ -9,7 +9,17 @@ import time
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from lightgbmlss.model import *
-from lightgbmlss.distributions.Gaussian import *
+from lightgbmlss.distributions.distribution_utils import DistributionClass
+from lightgbmlss.distributions import (
+    Beta,
+    Gaussian,
+    StudentT,
+    Gamma,
+    Cauchy,
+    LogNormal,
+    Weibull,
+    Gumbel,
+    Laplace)
 from scipy.stats import norm
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -19,7 +29,7 @@ from utils.safety import apply_safety_net
 
 np.random.seed(123)
 
-print("Usage: python UCI_lssboost_single_run_HP.py <seed_id> <mode> <natural_grad> <stabilization> <standardize>")
+print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization> <standardize>")
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
@@ -76,7 +86,7 @@ args = {
     "n_est": 200,
     "n_splits": 20,
     "score": "MLE",
-    "distn": "Normal",
+    "distn": "auto",  # Changed from "Normal" to "auto" for auto-selection
     "standardize": standardize,
     "random_state": 1,
 }
@@ -101,6 +111,7 @@ def run_single_arguement(run_seed):
     lss_rmse, lss_nll, times, times_HP = [], [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
     wql_01, wql_05, wql_09, wql_avg = [], [], [], []
+    selected_distributions = []  # Track selected distributions for each fold
 
     # Load dataset -- use last column as labela
     data = dataset_name_to_loader[dset]()
@@ -165,17 +176,49 @@ def run_single_arguement(run_seed):
         else:
             pass
 
+        # Auto-select the distribution if requested
+        if args['distn'] == "auto":
+            print(f"Selecting best distribution for fold {itr+1}...")
+            lgblss_dist_class = DistributionClass()
+            candidate_distributions = [Gaussian, StudentT, Gamma, LogNormal, Weibull, Gumbel, Laplace]
+            
+            dist_nll = lgblss_dist_class.dist_select(
+                target=y_train, 
+                candidate_distributions=candidate_distributions, 
+                max_iter=50, 
+                plot=False
+            )
+            
+            # Select the distribution with the lowest NLL
+            best_dist_name = min(dist_nll, key=dist_nll.get)
+            best_dist_class = next(d for d in candidate_distributions if d.__name__ == best_dist_name)
+            selected_distributions.append(best_dist_name)
+            print(f"Selected distribution: {best_dist_name} with NLL: {dist_nll[best_dist_name]}")
+            
+            # Create distribution instance
+            distribution = best_dist_class(
+                stabilization=args['stabilization'],
+                response_fn=args['mode'],
+                loss_fn="nll",
+                natural_gradient=args['natural_grad'],
+                clip_value=args['clip_value']
+            )
+        else:
+            # Use the specified distribution
+            distribution = Gaussian(
+                stabilization=args['stabilization'],
+                response_fn=args['mode'],
+                loss_fn="nll",
+                natural_gradient=args['natural_grad'],
+                clip_value=args['clip_value']
+            )
+            selected_distributions.append("Gaussian")
+
         full_train_data = lgb.Dataset(X_trainall, y_trainall)
 
         start_time = time.time()
-        lgblss = LightGBMLSS(
-            Gaussian(stabilization=args['stabilization'],
-                    response_fn = args['mode'],
-                    loss_fn = "nll",
-                    natural_gradient = args['natural_grad'],
-                    clip_value = args['clip_value'],
-                    )
-        )
+        lgblss = LightGBMLSS(distribution)
+        
         # Modify start values     
         lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
         
@@ -219,18 +262,21 @@ def run_single_arguement(run_seed):
         # the final prediction for this fold
         forecast = lgblss.predict(X_test)
 
-        print(f"Raw Pedictions - min: {forecast['loc'].min()}, max: {forecast['loc'].max()}, mean: {forecast['loc'].mean()}")
+        print(f"Raw Pedictions - min: {forecast[lgblss.dist.params[0]].min()}, max: {forecast[lgblss.dist.params[0]].max()}, mean: {forecast[lgblss.dist.params[0]].mean()}")
 
         # Handle rescaling for standardized data
         if args['standardize'] or dset == "Year Prediciton MSD":
-            forecast['loc'] = forecast['loc'] * y_std + y_mean
-            forecast['scale'] = forecast['scale'] * y_std
+            for param in lgblss.dist.params:
+                if param == lgblss.dist.params[0]:  # location parameter
+                    forecast[param] = forecast[param] * y_std + y_mean
+                if param == lgblss.dist.params[1]:  # scale parameter
+                    forecast[param] = forecast[param] * y_std
             y_test = y_test * y_std + y_mean
             y_trainall = y_trainall * y_std + y_mean
         else:
             pass
 
-        print(f"Pedictions after rescaling - min: {forecast['loc'].min()}, max: {forecast['loc'].max()}, mean: {forecast['loc'].mean()}")
+        print(f"Pedictions after rescaling - min: {forecast[lgblss.dist.params[0]].min()}, max: {forecast[lgblss.dist.params[0]].max()}, mean: {forecast[lgblss.dist.params[0]].mean()}")
 
         forecast_val = lgblss.predict(X_val)
         
@@ -238,10 +284,23 @@ def run_single_arguement(run_seed):
         end_time = time.time()  # End time measurement
         elapsed_time = end_time - start_time  # Calculate elapsed time
 
-        lss_rmse += [np.sqrt(mean_squared_error(forecast['loc'].values, y_test))]
-        val_rmse = [np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))]
-        lss_nll += [-norm(forecast['loc'], forecast['scale']).logpdf(y_test.flatten()).mean()]
-        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]])
+        # Calculate metrics - adapt for different distributions
+        loc_param = lgblss.dist.params[0]
+        scale_param = lgblss.dist.params[1] if len(lgblss.dist.params) > 1 else None
+        
+        lss_rmse += [np.sqrt(mean_squared_error(forecast[loc_param].values, y_test))]
+        val_rmse = [np.sqrt(mean_squared_error(forecast_val[loc_param].values, y_val))]
+        
+        # Calculate NLL and generate samples according to distribution type
+        if selected_distributions[itr] == "Gaussian":
+            lss_nll += [-norm(forecast[loc_param], forecast[scale_param]).logpdf(y_test.flatten()).mean()]
+            samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast[loc_param], forecast[scale_param])]])
+        else:
+            # Use distribution's logpdf method
+            lss_nll += [lgblss.dist.logpdf(forecast, y_test)]
+            # Generate samples using the distribution's random sampling method
+            samples = lgblss.dist.sample(forecast, 100)
+            
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test.flatten(), samples)
         lss_crps += [crps_comps[0]]
@@ -253,16 +312,18 @@ def run_single_arguement(run_seed):
         # Define the quantiles to evaluate
         quantiles = [0.1, 0.5, 0.9]
 
-        # Compute the quantiles for each observation
+        # Compute the quantiles for each observation using the distribution's ppf
         quantile_preds = {}
         quantile_losses = []
         for q in quantiles:
-            quantile_preds[str(q)] = norm.ppf(q, loc=forecast['loc'], scale=forecast['scale'])
+            quantile_preds[str(q)] = lgblss.dist.ppf(q, forecast)
             q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
 
         # Log predictions for each fold
-        log_predictions(itr, dset, y_test, forecast['loc'], forecast['scale'], quantile_preds, f"logs/uci/predictions/{method_name}.csv")
+        log_predictions(itr, dset, y_test, forecast[loc_param], 
+                        forecast[scale_param] if scale_param else None, 
+                        quantile_preds, f"logs/uci/predictions/{method_name}.csv")
 
         # Compute the average of the quantile losses (WQL as an average)
         wql_avg_fold = np.mean(quantile_losses)
@@ -279,7 +340,7 @@ def run_single_arguement(run_seed):
                     args['n_splits'],
                     best_iter,
                     np.sqrt(val_rmse),
-                    np.sqrt(mean_squared_error(forecast['loc'].values, y_test)),
+                    np.sqrt(mean_squared_error(forecast[loc_param].values, y_test)),
                     lss_nll[-1],
                     lss_crps[-1],
                     lss_crps_cal[-1],

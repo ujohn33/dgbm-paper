@@ -16,6 +16,6 @@ def apply_safety_net(forecast: pd.DataFrame, train_labels: np.ndarray) -> pd.Dat
     mean_label = np.mean(train_labels)
     safety_threshold = 100 * mean_label
     forecast['loc'] = forecast['loc'].apply(
-        lambda x: mean_label if abs(x) > safety_threshold else x
+        lambda x: mean_label if abs(x) > abs(safety_threshold) else x
     )
     return forecast
