@@ -1,20 +1,13 @@
 #!/bin/bash
 
 #SBATCH --output=./report/%A_LSSboost_uci/slurm-%A_%a.out # STDOUT
-
 #SBATCH --job-name=LSSboost_uci
-
 #SBATCH --time=1-12:00:00
-
 #SBATCH --ntasks-per-node=1
-
 #SBATCH --job-name=LSSboost_uci
 #SBATCH --partition=skylake,skylake_mpi
-
 #SBATCH --mem-per-cpu=60G
-
-#####SBATCH --array=0-9
-#SBATCH --array=0-9
+#SBATCH --array=7-8
 #SBATCH --mail-type=ALL
 
 
@@ -37,4 +30,15 @@ source $VSC_SCRATCH/distiboost_311/bin/activate
 
 cd /scratch/brussel/105/vsc10528/LSSboost
 
-python uci/UCI_lssboost_single_run_HP.py $SLURM_ARRAY_TASK_ID
+# Fixed values
+dataset=$SLURM_ARRAY_TASK_ID
+mode="exp"
+natural_grad="False" #("True" "False")
+stabilization="None"
+clip_value="None"
+standardize="False"
+
+# Echo the parameters and dataset for logging
+echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value and standardize=$standardize"
+
+python uci/UCI_lssboost_single_run_HP.py $dataset $mode $natural_grad $stabilization $clip_value $standardize

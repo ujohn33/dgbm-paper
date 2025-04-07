@@ -54,7 +54,7 @@ natural_grad=${natural_grad_values[$ng_index]}
 mode="exp"
 stabilization="None"
 clip_value="None"
-standardize="True"
+standardize="False"
 
 # Echo the parameters and dataset for logging
 echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value and standardize=$standardize"

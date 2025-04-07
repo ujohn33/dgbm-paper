@@ -75,7 +75,7 @@ args = {
     "natural_grad": natural_grad,
     "clip_value": clip_value,
     "stabilization": stabilization, # None, 'L2', "MAD"    
-    "n_est": 2000,
+    "n_est": 200,
     "n_splits": 20,
     "score": "MLE",
     "distn": "Normal",
@@ -89,7 +89,7 @@ param_dict = {
     "min_child_weight": ["int", {"low": 1, "high": 100, "log": True}],
     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
     "subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}],
-    'device':  ["categorical", ['cuda']],
+    #'device':  ["categorical", ['cuda']],
 }
 
 
@@ -124,14 +124,6 @@ def run_single_arguement(run_seed):
             test_index = permutation[end_train:n]
             folds.append((train_index, test_index))        
     else:
-        if args["dataset"] == "Concrete Compression Strength":
-            args["n_est"] = 200
-        elif args["dataset"] == "Energy Efficiency":
-            args["n_est"] = 200
-        elif args["dataset"] == "Boston Housing":
-            args["n_est"] = 200
-        else:
-            pass
         # kf = KFold(n_splits=args["n_splits"])
         # folds = kf.split(X)
         # # Follow https://github.com/yaringal/DropoutUncertaintyExps/blob/master/UCI_Datasets/concrete/data/split_data_train_test.py
@@ -175,14 +167,22 @@ def run_single_arguement(run_seed):
         full_train_data = xgb.DMatrix(X_trainall, label=y_trainall)
 
         start_time = time.time()
-        xgblss = XGBoostLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", 
-                                 natural_gradient=args["natural_grad"], clip_value=args["clip_value"]))
+        xgblss = XGBoostLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll")) 
+        
+        # natural_gradient=args["natural_grad"], clip_value=args["clip_value"]))
         # Modify start values     
         # Change this line
 
+        # Modify parameter dictionary for Year Prediciton MSD dataset
+        current_param_dict = param_dict.copy()
+        if dset == "Year Prediciton MSD":
+            current_param_dict["subsample"] = ["categorical", [0.1]]
+        else:
+            current_param_dict = param_dict
+
         xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
-        opt_param = xgblss.hyper_opt(param_dict, full_train_data, num_boost_round=args["n_est"],
+        opt_param = xgblss.hyper_opt(current_param_dict, full_train_data, num_boost_round=args["n_est"],
                                     nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=80, n_trials=20,
                                     silence=True, seed=args['random_state'], hp_seed=args['random_state'])
         opt_params = opt_param.copy()
@@ -291,10 +291,8 @@ def run_single_arguement(run_seed):
     # After the folds are evaluated
     print(dset)
     print(
-            "== GBM=%.4f +/- %.4f, RMSE GBMLSS=%.4f ± %.4f, NLL GBMLSS=%.4f ± %.4f, CRPS = %.4f  +/- %.4f, CRPS_cal =  %.4f +/- %.4f, CRPS_sha =  %.4f +/- %.4f,  TIME = %.4f"
+            "== RMSE GBMLSS=%.4f ± %.4f, NLL GBMLSS=%.4f ± %.4f, CRPS = %.4f  +/- %.4f, CRPS_cal =  %.4f +/- %.4f, CRPS_sha =  %.4f +/- %.4f,  TIME = %.4f"
             % (
-                0.0,
-                0.0,
                 np.mean(lss_rmse),
                 np.std(lss_rmse),
                 np.mean(lss_nll),
@@ -309,12 +307,13 @@ def run_single_arguement(run_seed):
             )
         )
     # return a dictonary of val
-    return  dset, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), elapsed_time_HP, np.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
+    return  dset, np.mean(lss_rmse), np.std(lss_rmse), np.mean(lss_nll), np.std(lss_nll), np.mean(lss_crps), np.std(lss_crps), np.mean(lss_crps_cal), np.std(lss_crps_cal), np.mean(lss_crps_sha), np.std(lss_crps_sha), np.mean(times), np.mean(times_HP), np.mean(wql_01), np.std(wql_01), np.mean(wql_05), np.std(wql_05), np.mean(wql_09), np.std(wql_09), np.mean(wql_avg), np.std(wql_avg) 
 
 
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
+    method_name = f"{method_name}_n_est_{args['n_est']}"  # Assuming args['n_est'] exists
     if args['natural_grad']:
         file_path = f"results/uci/uci_{method_name}.csv"
     else:
