@@ -5,6 +5,7 @@ data/
 archive
 report
 results/
+data/
 AutogluonModels
 logs
 logs/LSSboost_logloss.csv
