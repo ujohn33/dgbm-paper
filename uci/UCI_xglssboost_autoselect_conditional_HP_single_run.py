@@ -10,6 +10,15 @@ from sklearn.model_selection import KFold, train_test_split
 from xgboostlss.model import *
 from xgboostlss.distributions.distribution_utils import DistributionClass
 from xgboostlss.distributions import *
+# To these specific class imports:
+from xgboostlss.distributions.Gaussian import Gaussian
+from xgboostlss.distributions.StudentT import StudentT
+from xgboostlss.distributions.Gamma import Gamma
+from xgboostlss.distributions.LogNormal import LogNormal
+from xgboostlss.distributions.Weibull import Weibull
+from xgboostlss.distributions.Gumbel import Gumbel
+from xgboostlss.distributions.Laplace import Laplace
+
 from scipy.stats import norm
 # Add import for evaluation functions from utils
 from xgboostlss.utils import evaluate_nll, evaluate_crps
@@ -78,7 +87,7 @@ args = {
     "natural_grad": natural_grad,
     "clip_value": clip_value,
     "stabilization": stabilization, # None, 'L2', "MAD"    
-    "n_est": 200,
+    "n_est": 2000,
     "n_splits": 20,
     "score": "MLE",
     "distn": "auto",
@@ -92,9 +101,110 @@ param_dict = {
     "min_child_weight": ["int", {"low": 1, "high": 100, "log": True}],
     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
     #"subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}],
-    'device':  ["categorical", ['cuda']],
+    #'device':  ["categorical", ['cuda']],
 }
 
+def feature_conditional_dist_select(X_train, y_train, candidate_distributions, cv=5, **kwargs):
+    """
+    Select best distribution based on predictive performance with features.
+    
+    Args:
+        X_train: Feature matrix
+        y_train: Target vector
+        candidate_distributions: List of distribution classes to evaluate
+        cv: Number of cross-validation folds
+        **kwargs: Additional parameters for XGBoostLSS model
+    
+    Returns:
+        best_dist: Best performing distribution class
+        cv_results: DataFrame with cross-validation results
+    """
+    # Default parameters for quick training
+    default_params = {
+        'num_boost_round': 50,  # Reduced for speed
+        'early_stopping_rounds': 10,
+        'learning_rate': 0.1,
+        'max_depth': 3
+    }
+    
+    # Update with any provided kwargs
+    model_params = {**default_params, **kwargs}
+    
+    results = []
+    
+    # Setup cross-validation
+    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
+    
+    for dist_class in candidate_distributions:
+        dist_name = dist_class.__name__.split(".")[-1]
+        print(f"Evaluating {dist_name}...")
+        
+        fold_scores = []
+        
+        # Cross-validation
+        for fold, (train_idx, val_idx) in enumerate(kf.split(X_train)):
+            X_fold_train, X_fold_val = X_train[train_idx], X_train[val_idx]
+            y_fold_train, y_fold_val = y_train[train_idx], y_train[val_idx]
+            
+            # Create distribution instance
+            dist = dist_class(stabilization="None", response_fn="exp", loss_fn="nll")
+            
+            try:
+                # Create validation data
+                dtrain = xgb.DMatrix(X_fold_train, label=y_fold_train)
+                dval = xgb.DMatrix(X_fold_val, label=y_fold_val)
+                
+                # Create model
+                model = XGBoostLSS(dist)
+                
+                # Training with early stopping
+                gbm = model.train(default_params, dtrain=dtrain, num_boost_round=default_params["num_boost_round"], evals=[(dtrain, "train"), (dval, "val")], early_stopping_rounds=default_params["early_stopping_rounds"])
+                
+                # Predict
+                pred = model.predict(dval)
+                
+                # Create a DataFrame with the prediction results
+                pred_df = pd.DataFrame({param: pred[param].values for param in dist.distribution_arg_names})
+                
+                # Use the evaluate_nll function with the distribution class, not an instance
+                nll = evaluate_nll(dist_class, pred_df, y_fold_val)
+                rmse = np.sqrt(mean_squared_error(y_fold_val, pred[dist.distribution_arg_names[0]]))
+                
+                fold_scores.append({
+                    'fold': fold,
+                    'nll': nll,
+                    'rmse': rmse
+                })
+            except Exception as e:
+                print(f"Error fitting {dist_name} on fold {fold}: {str(e)}")
+                fold_scores.append({
+                    'fold': fold,
+                    'nll': float('inf'), 
+                    'rmse': float('inf')
+                })
+        
+        # Average scores across folds
+        avg_nll = np.mean([s['nll'] for s in fold_scores if s['nll'] != float('inf')])
+        avg_rmse = np.mean([s['rmse'] for s in fold_scores if s['rmse'] != float('inf')])
+        
+        results.append({
+            'distribution': dist_name,
+            'avg_nll': avg_nll if not np.isnan(avg_nll) else float('inf'),
+            'avg_rmse': avg_rmse if not np.isnan(avg_rmse) else float('inf'),
+            'fold_scores': fold_scores
+        })
+    
+    # Create results DataFrame
+    results_df = pd.DataFrame(results)
+    
+    # Sort by NLL (lower is better)
+    results_df = results_df.sort_values('avg_nll')
+    
+    # Select best distribution
+    best_dist_name = results_df.iloc[0]['distribution'] if not results_df.empty else candidate_distributions[0].__name__
+    best_dist = next(d for d in candidate_distributions if d.__name__.split(".")[-1] == best_dist_name)
+    
+    return best_dist, results_df
 
 def run_single_arguement(run_seed):
     dset = dataset_list[int(run_seed)]
@@ -157,6 +267,13 @@ def run_single_arguement(run_seed):
             X_trainall, y_trainall, test_size=0.2, random_state=args['random_state']
         )
 
+        # Modify parameter dictionary for Year Prediciton MSD dataset
+        current_param_dict = param_dict.copy()
+        if dset == "Year Prediciton MSD":
+            current_param_dict["subsample"] = ["categorical", [0.1]]
+        else:
+            current_param_dict = param_dict
+
         # Auto-select the distribution if requested
         if args['distn'] == "auto":
             print(f"Selecting best distribution for fold {itr+1}...")
@@ -164,22 +281,22 @@ def run_single_arguement(run_seed):
             candidate_distributions = [Gaussian, StudentT, Gamma, LogNormal, Weibull, Gumbel, Laplace]
             print('Candidate distributions:', candidate_distributions)
             
-            dist_fit_df = lgblss_dist_class.dist_select(
-                target=y_train, 
-                candidate_distributions=candidate_distributions, 
-                max_iter=50, 
-                plot=False
+            start_time = time.time()
+            # Use the feature_conditional_dist_select function to select the best distribution
+            best_dist_module, dist_fit_df = feature_conditional_dist_select(
+            X_train, y_train, 
+            candidate_distributions,
+            cv=3,  # Use 3-fold CV for speed
+            num_boost_round=50,
+            early_stopping_rounds=10
             )
             
-            # Select the distribution with the lowest NLL
-            best_dist_name = dist_fit_df.iloc[0]["distribution"]
-            best_dist_module = next(d for d in candidate_distributions 
-                                  if d.__name__.split(".")[-1] == best_dist_name)
+            best_dist_name = best_dist_module.__name__.split(".")[-1]
             selected_distributions.append(best_dist_name)
-            print(f"Selected distribution: {best_dist_name} with NLL: {dist_fit_df.iloc[0][lgblss_dist_class.loss_fn]}")
+            print(f"Selected distribution: {best_dist_name} with NLL: {dist_fit_df.iloc[0]['avg_nll']}")
             
             # Create distribution instance
-            distribution = getattr(best_dist_module, best_dist_name)(
+            distribution = best_dist_module(
                 stabilization=args['stabilization'],
                 response_fn=args['mode'],
                 loss_fn="nll",
@@ -206,17 +323,9 @@ def run_single_arguement(run_seed):
 
         full_train_data = xgb.DMatrix(X_trainall, label=y_trainall)
 
-        start_time = time.time()
         xgblss = XGBoostLSS(distribution)
         # Modify start values     
         # Change this line
-
-        # Modify parameter dictionary for Year Prediciton MSD dataset
-        current_param_dict = param_dict.copy()
-        if dset == "Year Prediciton MSD":
-            current_param_dict["subsample"] = ["categorical", [0.1]]
-        else:
-            current_param_dict = param_dict
 
         xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
@@ -287,11 +396,11 @@ def run_single_arguement(run_seed):
         forecast_df = pd.DataFrame({param: forecast[param].values for param in xgblss.dist.distribution_arg_names})
         
         # Use the imported evaluate_nll function from utils
-        nll_score = evaluate_nll(xgblss.dist.distribution, forecast_df, y_test)
+        nll_score = evaluate_nll(best_dist_module, forecast_df, y_test)
         lss_nll += [nll_score]
         
         # Use the imported evaluate_crps function from utils
-        crps_score, crps_cal, crps_sha = evaluate_crps(xgblss.dist.distribution, forecast_df, y_test, n_samples=100)
+        crps_score, crps_cal, crps_sha = evaluate_crps(best_dist_module, forecast_df, y_test, n_samples=100)
         lss_crps += [crps_score]
         lss_crps_cal += [crps_cal]
         lss_crps_sha += [crps_sha]
@@ -345,6 +454,7 @@ def run_single_arguement(run_seed):
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
+    method_name = f"{method_name}_n_est_{args['n_est']}"  # Assuming args['n_est'] exists
     if args['natural_grad']:
         file_path = f"results/uci/uci_{method_name}.csv"
     else:

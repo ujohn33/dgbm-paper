@@ -1,4 +1,3 @@
-import openml
 import os
 import sys
 import json
@@ -71,7 +70,7 @@ args = {
     "natural_grad": natural_grad,
     "stabilization": stabilization, # None, 'L2', "MAD"  
     "clip_value": clip_value,
-    "n_est": 2000,
+    "n_est": 1000,
     "n_splits": 20,
     "score": "MLE",
     "distn": "Normal",
@@ -80,17 +79,33 @@ args = {
 }
 
 # Define your hyperparameter space
+# param_dict = {
+#     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
+#     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
+#     "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
+#     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
+#     "lambda_l1": ["float", {"low": 1e-8, "high": 10, "log": True}],
+#     "lambda_l2": ["float", {"low": 1e-8, "high": 10, "log": True}],
+#     "bagging_fraction": ["float", {"low": 0.6, "high": 1.0, "log": False}],
+#     "bagging_freq": ["int", {"low": 1, "high": 10, "log": False}],
+#     "feature_pre_filter": ["categorical", [False]],
+#     #'device':  ["categorical", ['cuda']],
+#     #'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
+#     #'max_bin': ["int", {"low": 16, "high": 255, "log": False}],
+#     # "min_child_weight": ["categorical", [1.0]],
+#     # "device": ["categorical", ['gpu']]
+# }
+
 param_dict = {
-    "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
-    "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
-    "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
-    "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
+    "eta": ["float", {"low": 0.05, "high": 0.25, "log": True}],
+    "max_depth": ["int", {"low": 2, "high": 6, "log": False}],
+    "num_leaves": ["int", {"low": 30, "high": 100, "log": False}],
+    "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],
+    "lambda_l1": ["float", {"low": 1e-8, "high": 1.0, "log": True}],
+    "lambda_l2": ["float", {"low": 1e-8, "high": 1.0, "log": True}],
+    "bagging_fraction": ["float", {"low": 0.65, "high": 0.95, "log": False}],
+    "bagging_freq": ["int", {"low": 1, "high": 8, "log": False}],
     "feature_pre_filter": ["categorical", [False]],
-    #'device':  ["categorical", ['cuda']],
-    #'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
-    #'max_bin': ["int", {"low": 16, "high": 255, "log": False}],
-    # "min_child_weight": ["categorical", [1.0]],
-    # "device": ["categorical", ['gpu']]
 }
 
 def run_single_arguement(run_seed):
@@ -182,7 +197,7 @@ def run_single_arguement(run_seed):
             current_param_dict = param_dict
 
         opt_param = lgblss.hyper_opt(current_param_dict, full_train_data, num_boost_round=args["n_est"],
-                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=20,
+                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=200,
                                     silence=True, seed=args['random_state'], hp_seed=args['random_state'])
         opt_params = opt_param.copy()
 

@@ -67,7 +67,7 @@ param_dict = {
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "feature_pre_filter": ["categorical", [False]],
     'device':  ["categorical", ['cpu']],
-    'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
+    #'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
     #'deterministic': ["categorical", [True]],
     #'min_child_weight': ["categorical", [1]],
     #"histogram_pool_size": ["categorical", [16384]],

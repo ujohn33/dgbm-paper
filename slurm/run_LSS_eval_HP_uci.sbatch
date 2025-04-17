@@ -7,7 +7,7 @@
 #SBATCH --job-name=LSSboost_uci
 #SBATCH --partition=skylake,skylake_mpi
 #SBATCH --mem-per-cpu=60G
-#SBATCH --array=7-8
+#SBATCH --array=0-9
 #SBATCH --mail-type=ALL
 
 
