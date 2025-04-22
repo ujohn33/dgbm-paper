@@ -97,15 +97,12 @@ args = {
 # }
 
 param_dict = {
-    "eta": ["float", {"low": 0.05, "high": 0.25, "log": True}],
-    "max_depth": ["int", {"low": 2, "high": 6, "log": False}],
-    "num_leaves": ["int", {"low": 30, "high": 100, "log": False}],
-    "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],
-    "lambda_l1": ["float", {"low": 1e-8, "high": 1.0, "log": True}],
-    "lambda_l2": ["float", {"low": 1e-8, "high": 1.0, "log": True}],
-    "bagging_fraction": ["float", {"low": 0.65, "high": 0.95, "log": False}],
-    "bagging_freq": ["int", {"low": 1, "high": 8, "log": False}],
+    "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
+    "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
+    "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
+    "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "feature_pre_filter": ["categorical", [False]],
+    'device':  ["categorical", ['cuda']],
 }
 
 def run_single_arguement(run_seed):

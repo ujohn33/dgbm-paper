@@ -1,13 +1,13 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_LSSboost_uci/slurm-%A_%a.out # STDOUT
-#SBATCH --job-name=LSSboost_uci
+#SBATCH --output=./report/%A_LSSboost_M5/slurm-%A_%a.out # STDOUT
+#SBATCH --job-name=LSSboost_M5
 #SBATCH --time=1-12:00:00
 #SBATCH --ntasks-per-node=1
-#SBATCH --job-name=LSSboost_uci
+#SBATCH --job-name=LSSboost_M5
 #SBATCH --partition=skylake,skylake_mpi
-#SBATCH --mem-per-cpu=60G
-#SBATCH --array=0-9
+#SBATCH --mem-per-cpu=5G
+#SBATCH --array=1-100
 #SBATCH --mail-type=ALL
 
 
@@ -32,13 +32,14 @@ cd /scratch/brussel/105/vsc10528/LSSboost
 
 # Fixed values
 dataset=$SLURM_ARRAY_TASK_ID
-mode="exp"
+mode="softplus"
 natural_grad="False" #("True" "False")
 stabilization="None"
 clip_value="None"
 standardize="False"
+dist='Gaussian'
 
 # Echo the parameters and dataset for logging
 echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value and standardize=$standardize"
 
-python uci/m5_lssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $clip_value $standardize
+python m5/m5_lssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $clip_value $standardize $dist

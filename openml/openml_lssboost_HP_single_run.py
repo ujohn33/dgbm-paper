@@ -40,7 +40,7 @@ args = {
     "natural_grad": natural_grad,
     "stabilization": stabilization, # None, 'L2', "MAD"
     #"quantile_clipping": quantile_clipping,
-    "clip_value": None,
+    #"clip_value": None,
     "SUITE_ID": 336, # Regression on numerical features
     "n_est": 2000,
     "n_trials": 80,
@@ -101,8 +101,7 @@ def run_single_argument(task_id):
 
     start_time = time.time()  # Start time measurement
 
-    lgblss = LightGBMLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", natural_gradient=args['natural_grad']
-                                  , clip_value=args['clip_value']))
+    lgblss = LightGBMLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", natural_gradient=args['natural_grad']))
     #lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
     lgblss.start_values = np.array([np.mean(y_train_opt), np.std(y_train_opt)])
 

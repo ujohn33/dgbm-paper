@@ -4,12 +4,12 @@ Sys.setlocale(locale = "en_US.utf8") ## English US Linux
 Sys.setlocale(locale = "en_US") ## English US Mac
 Sys.setlocale(locale = "English_United States.1252") ## English US Windows
 
+
 suppressMessages({
     library(data.table)
     library(RcppRoll)
     library(dplyr)
-    library(ragg)
-    #library(lightgbm)
+    library(lightgbm)
 })
 
 # Garbage collection
@@ -21,11 +21,11 @@ igc <- function() {
 dm = 1941 #? +28
 H=1#1#28
 
-path <- "/scratch/brussel/105/vsc10528/LSSboost/data/m5-forecasting-accuracy/"
+path <- "/home/florian/sciebo/PRIVATE/m5/data/"
 
 calendar <- fread(file.path(path, "calendar.csv"))
 selling_prices <- fread(file.path(path, "sell_prices.csv"))
-#sample_submission <- fread(file.path(path, "sample_submission.csv"))
+sample_submission <- fread(file.path(path, "sample_submission.csv"))
 #sales <- fread(file.path(path, "sales_train_validation.csv"))
 sales <- fread(file.path(path, "sales_train_evaluation.csv"))
 
@@ -163,26 +163,17 @@ gc()
 
 ## Merge calendar to sales
 sales <- calendar[sales, on = "d"]
-igc()
-rm(calendar)
+#igc()
 #sales['idn']<- sales[['id']]
 sales[, 'idn' := id]
 
 
 # Merge selling prices to sales and drop key
 train <- selling_prices[sales, on = c('store_id', 'item_id', 'wm_yr_wk')][, wm_yr_wk := NULL]
-rm(sales, selling_prices)
+rm(sales, selling_prices, calendar)
 igc()
 
-gc()
-
 #(0:(dm-1)) *30491 +2
-
-#ptmax<- 730
-train <- train[d > dm - ptmax]
-
-## REMOVE data between T+1 and T+H
-train<- train[!(d<max(train[,d]) & d>max(train[,d])-H ),]
 
 # Turn non-numerics to integer
 cols <- c("id", "item_id", "dept_id", "cat_id", "store_id", "state_id")
@@ -190,12 +181,13 @@ train[, (cols) := lapply(.SD, function(z) as.integer(as.factor(z))), .SDcols = c
 
 gc()
 
-write.csv(train, "/scratch/brussel/105/vsc10528/LSSboost/data/m5-forecasting-accuracy/train_preprocessed.csv")
+#ptmax<- 730
+train <- train[d > dm - ptmax]
 
-train <- fread("/scratch/brussel/105/vsc10528/LSSboost/data/m5-forecasting-accuracy/train_preprocessed.csv")
+## REMOVE data between T+1 and T+H
+train<- train[!(d<max(train[,d]) & d>max(train[,d])-H ),]
+
 gc()
-
-colnames(train)
 
 #library(foreach)
 library(parallel)
@@ -251,36 +243,36 @@ gc()
 
 
 idp<- which(train[,id] == train[1,id] ) -1
-for(ii in iiseq){
-	OO[ii,"item_id"]<- train[idp[1]+ii,c("item_id")]
-	OO[ii,"store_id"]<- train[idp[1]+ii,c("store_id")]
-	idx<- idp+ii #seq(ii, (n_dates-1)*n_all+ii, n_all)
-	idxx<- idx[!is.na(train[idx,sell_price])]
-	yy<- train[idxx, demand]
-	idy<- !is.na(yy)
-	yy<- yy[idy]
-	yya<- train[idxx[idy], demand_rolling_mean_ann7]
-	OO[ii,"n"]<- length(idxx)
-	OO[ii,"min"]<- min(yy)
-	OO[ii,"max"]<- max(yy)
-  OO[ii,"mean"]<- mean(yy)
-	OO[ii,"sd"]<- sqrt(var(yy))
-	OO[ii,"z0"]<- mean(yy==0)
-	OO[ii,"z1"]<- mean(yy==1)
-	yacf<- acf(yy, lag.max=7, plot=FALSE)$acf[-1,,]
-	ypacf<- pacf(yy, lag.max=7, plot=FALSE)$acf[,,]
-  yacf[is.nan(yacf)]<- 0
-	ypacf[is.nan(ypacf)]<- 0
-	OO[ii,"acf1"]<- yacf[1]
-	OO[ii,"acf7"]<- yacf[7]
-	OO[ii,"pacf7"]<- ypacf[7]
-	OO[ii,"acann7"]<- cor(yya,yy, use="pairwise.complete.obs")
-	cat(ii)
-}
-OO[is.na(OO)]<- 0
-save(OO, file = "/scratch/brussel/105/vsc10528/LSSboost/data/OO.RData")
+#for(ii in iiseq){
+#	OO[ii,"item_id"]<- train[idp[1]+ii,c("item_id")]
+#	OO[ii,"store_id"]<- train[idp[1]+ii,c("store_id")]
+#	idx<- idp+ii #seq(ii, (n_dates-1)*n_all+ii, n_all)
+#	idxx<- idx[!is.na(train[idx,sell_price])]
+#	yy<- train[idxx, demand]
+#	idy<- !is.na(yy)
+#	yy<- yy[idy]
+#	yya<- train[idxx[idy], demand_rolling_mean_ann7]
+#	OO[ii,"n"]<- length(idxx)
+#	OO[ii,"min"]<- min(yy)
+#	OO[ii,"max"]<- max(yy)
+#	OO[ii,"mean"]<- mean(yy)
+#	OO[ii,"sd"]<- sqrt(var(yy))
+#	OO[ii,"z0"]<- mean(yy==0)
+#	OO[ii,"z1"]<- mean(yy==1)
+#	yacf<- acf(yy, lag.max=7, plot=FALSE)$acf[-1,,]
+#	ypacf<- pacf(yy, lag.max=7, plot=FALSE)$acf[,,]
+#	yacf[is.nan(yacf)]<- 0
+#	ypacf[is.nan(ypacf)]<- 0
+#	OO[ii,"acf1"]<- yacf[1]
+#	OO[ii,"acf7"]<- yacf[7]
+#	OO[ii,"pacf7"]<- ypacf[7]
+#	OO[ii,"acann7"]<- cor(yya,yy, use="pairwise.complete.obs")
+#	cat(ii)
+#}
+#OO[is.na(OO)]<- 0
+#save(OO, file = "/home/florian/sciebo/PRIVATE/m5/proposal/OO.RData")
 
-load("/scratch/brussel/105/vsc10528/LSSboost/data/OO.RData")
+load("/home/florian/sciebo/PRIVATE/m5/proposal/OO.RData")
 
 
 OOO<- OO[1:n_item,]
@@ -311,10 +303,7 @@ cmod<- kmeans(scale(XX), mx, nstart=100, iter.max = 200)
 morder<- c(1,6,3,5,7,2,4,8,9)
 COL<- c(1, 2:8, "orange")
 
-#pdf("/scratch/brussel/105/vsc10528/LSSboost/data/cluster.pdf", width=12, height=10)
-
-# Replaces pdf(...) with a headless-friendly PNG output
-agg_png("/scratch/brussel/105/vsc10528/LSSboost/data/cluster.png", width = 1200, height = 1000, res = 150)
+pdf("/home/florian/sciebo/PRIVATE/m5/proposal/outfig_rev/cluster.pdf", width=12, height=10)
 par(family="Times", mar=c(0.04,0.04,0.04,0.04), oma=c(0,0,0,0))
 
 gsel<- c("n", "log mean", "log sd", "acf lag=1", "pacf lag=7", "ann. cor", "prop. of 0")
@@ -344,57 +333,6 @@ idid<- which.max(table(cmod$cl))
 #registerDoParallel(cl)
 
 #outloop <- foreach(idid=1:mx) %dopar% {
-
-
-for(idid in 0:mx){
-  idsel <- which(idid == cmod$cl)
-  idsel_itemid <- OO[idsel, "item_id"]
-  idsel_is <- rep(idsel, n_stores) + rep((1:n_stores - 1) * n_item, rep(length(idsel), n_stores))
-  idx <- rep(idp, rep(length(idsel_is), length(idp))) + rep(idsel_is, length(idp))
-  
-  idxxx <- idx[!is.na(train[idx, "sell_price"])]
-  set.seed(1234)
-  
-  idout <- which(train[idxxx, d] == train[nrow(train), d])
-  idxx_out <- idxxx[idout]
-  idxxx_red <- idxxx[-idout]
-  idxx_in <- sort(sample(idxxx_red, length(idxxx_red) * 1.0))
-  idxx <- c(idxx_in, idxx_out)
-  
-  dat <- as.data.frame(train[idxx, ])
-  
-  tmp <- c(
-    "demand", "item_id", "store_id", "d", "demand_lag_tH", "demand_lag_tHp1", "demand_lag_tHp6", "demand_lag_ann7",
-    "demand_rolling_mean_t7", "demand_rolling_mean_t14", "demand_rolling_mean_t28",
-    "demand_rolling_mean_t56", "demand_rolling_mean_ann7",
-    
-    "demand_store_id_lag_tH", "demand_store_id_lag_tHp1", "demand_store_id_lag_tHp6", "demand_store_id_lag_ann7",
-    "demand_store_id_rolling_mean_t7", "demand_store_id_rolling_mean_t14",
-    "demand_store_id_rolling_mean_t28", "demand_store_id_rolling_mean_t56",
-    "demand_store_id_rolling_mean_ann7",
-    
-    "demand_item_id_lag_tH", "demand_item_id_lag_tHp1", "demand_item_id_lag_tHp6", "demand_item_id_lag_ann7",
-    "demand_item_id_rolling_mean_t7", "demand_item_id_rolling_mean_t14",
-    "demand_item_id_rolling_mean_t28", "demand_item_id_rolling_mean_t56",
-    "demand_item_id_rolling_mean_ann7",
-    
-    "demand_all_id_lag_tH", "demand_all_id_lag_tHp1", "demand_all_id_lag_tHp6", "demand_all_id_lag_ann7",
-    "demand_all_id_rolling_mean_t7", "demand_all_id_rolling_mean_t14",
-    "demand_all_id_rolling_mean_t28", "demand_all_id_rolling_mean_t56",
-    "demand_all_id_rolling_mean_ann7"
-  )
-  
-  existing_cols <- intersect(tmp, names(dat))
-  DAT <- dat[, existing_cols]
-  DAT <- na.omit(DAT)  # Remove incomplete rows
-  
-  # Save to CSV
-  cluster_filename <- paste0("/scratch/brussel/105/vsc10528/LSSboost/data/train_cluster_", idid, ".csv")
-  fwrite(DAT, file = cluster_filename)
-  
-  cat("Saved cluster", idid, "\n")
-}
-
 for(idid in 81:mx){
 idsel<- which(idid==cmod$cl)
 iin<- idsel
@@ -437,22 +375,18 @@ idxx<- c(idxx_in,idxx_out)
 
 #		system.time( mod<- gam(demand~ rolling_mean_t7 + store_id + te(wday) , family="nb", data=DAT ) )
 
-		#WDAY<- dat[, "wday"] == matrix(c(1,5:7), dim(dat)[1],4, byrow=TRUE)
-		#dimnames(WDAY)<- list(NULL, paste("wday", c(1,5:7), sep=""))
-		#STOREID<-  dat[, "store_id"] == matrix(1:n_stores, dim(dat)[1],n_stores, byrow=TRUE)
-		#dimnames(STOREID)<- list(NULL, paste("store", 1:n_stores, sep=""))
-		#ITEMID<-  dat[, "item_id"] == matrix(idsel_itemid, dim(dat)[1],length(idsel), byrow=TRUE)
-		#dimnames(ITEMID)<- list(NULL, paste("item", idsel_itemid, sep=""))
+		WDAY<- dat[, "wday"] == matrix(c(1,5:7), dim(dat)[1],4, byrow=TRUE)
+		dimnames(WDAY)<- list(NULL, paste("wday", c(1,5:7), sep=""))
+		STOREID<-  dat[, "store_id"] == matrix(1:n_stores, dim(dat)[1],n_stores, byrow=TRUE)
+		dimnames(STOREID)<- list(NULL, paste("store", 1:n_stores, sep=""))
+		ITEMID<-  dat[, "item_id"] == matrix(idsel_itemid, dim(dat)[1],length(idsel), byrow=TRUE)
+		dimnames(ITEMID)<- list(NULL, paste("item", idsel_itemid, sep=""))
 		##interactions
-#gc()
+gc()
 
-		#DAT<- data.table(cbind( dat[, tmp],  WDAY , STOREID , ITEMID))#[idDAT,] ## wday:1== Sat
-		DAT <- dat[, tmp]
+		DAT<- data.table(cbind( dat[, tmp],  WDAY , STOREID , ITEMID))#[idDAT,] ## wday:1== Sat
 		names(DAT)<- gsub("TRUE","",names(DAT))
 
-		cluster_filename <- paste0("/scratch/brussel/105/vsc10528/LSSboost/data/train_cluster_", idid, ".csv")
-		fwrite(DAT, file = cluster_filename)
-}
 #sort( sapply(ls(),function(x){object.size(get(x))})) 
 gc()
 
@@ -534,9 +468,7 @@ if(kmax>1)plot(getSmo(mod, "sigma")[[2]]$scaled.beta, type="h")
 par(mfrow=c(1,1))
 gc()
 
-}
-		
-#i.dist
+}#i.dist
 gc()
 	NULL
 }#ii
