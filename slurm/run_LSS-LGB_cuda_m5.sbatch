@@ -1,13 +1,13 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_LSSboost_M5/slurm-%A_%a.out # STDOUT
-#SBATCH --job-name=LSSboost_M5
+#SBATCH --output=./report/%A_LGB_LSS_cuda_m5/slurm-%A_%a.out # STDOUT
+#SBATCH --job-name=LGB_LSS_cuda_m5
 #SBATCH --time=1-12:00:00
 #SBATCH --ntasks-per-node=1
-#SBATCH --job-name=LSSboost_M5
-#SBATCH --partition=skylake,skylake_mpi
-#SBATCH --mem-per-cpu=25G
-#SBATCH --array=4,10,16,24,26,39,43,46,48,52,53,55,56,57,58,63,64,67,69,73,74,75,76,77,79,80,81,82,83,85,86,88,91,92,93,96,99,100
+#SBATCH --partition=pascal_gpu,ampere_gpu
+#SBATCH --gpus-per-node=1
+#SBATCH --mem-per-cpu=20G
+#SBATCH --array=1-3
 #SBATCH --mail-type=ALL
 
 
@@ -19,12 +19,12 @@
 
 module load Python/3.11.3-GCCcore-12.3.0
 module load IPython/8.14.0-GCCcore-12.3.0
+module load PyTorch-bundle/2.1.2-foss-2023a-CUDA-12.1.1
 module load jupyter-server/2.14.0-GCCcore-12.3.0
 module load aiohttp/3.8.5-GCCcore-12.3.0
 module load Optuna/3.5.0-foss-2023a
 module load SciPy-bundle/2023.07-gfbf-2023a
 module load Pillow/10.0.0-GCCcore-12.3.0
-module load openpyxl/3.1.2-GCCcore-12.3.0
 
 source $VSC_SCRATCH/distiboost_311/bin/activate
 

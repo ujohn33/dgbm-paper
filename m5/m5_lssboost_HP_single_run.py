@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from scipy.stats import norm
+import torch
 from lightgbmlss.model import *
 from lightgbmlss.distributions.Gaussian import *
 from lightgbmlss.distributions.NegativeBinomial import *
@@ -47,22 +48,15 @@ test_df = df[test_mask].copy()
 
 # Separate features and target
 y_trainval = train_df["demand"]
-X_trainval = train_df.drop(columns=["demand", "d", "item_id", "store_id"])
+X_trainval = train_df.drop(columns=["demand", "d"])
 
 y_test = test_df["demand"]
-X_test = test_df.drop(columns=["demand", "d", "item_id", "store_id"])
+X_test = test_df.drop(columns=["demand", "d"])
 
 # X_trainval, X_test, y_trainval, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 X_train, X_val, y_train, y_val = train_test_split(X_trainval, y_trainval, test_size=0.25, random_state=42)  # final split: 60/20/20
 
-# Define model with parameters received from command line
-# lgblss = LightGBMLSS(
-#     Gaussian(
-#         stabilization=stabilization, 
-#         response_fn=mode, 
-#         loss_fn="nll"
-#         )
-# )
+cat_features = [X_train.columns.get_loc(col) for col in ["store_id", "item_id", "wday", "weekend_plus"]]
 
 if dist == "Gaussian":
     lgblss = LightGBMLSS(
@@ -93,21 +87,28 @@ else:
     lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
 
 param_dict = {
-    "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
+    "eta": ["float", {"low": 1e-5, "high": 1e-1, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "lambda_l1": ["float", {"low": 1e-8, "high": 10, "log": True}],
+    "histogram_pool_size": ["int", {"low": 1e3, "high": 5e3, "log": True}],
     "feature_pre_filter": ["categorical", [False]],
-    #'device':  ["categorical", ['cuda']],
+    'device': ["categorical", ['cuda']],
 }
 
-dtrain = lgb.Dataset(X_train, y_train)
+# if cuda is available, use it
+# param_dict["device"] = ["categorical", ['cuda']] if torch.cuda.is_available() else ["categorical", ['cpu']]
+
+dtrain = lgb.Dataset(X_train, y_train, categorical_feature=cat_features)
+dtrain_final = lgb.Dataset(X_trainval, y_trainval, categorical_feature=cat_features)
+dtest = lgb.Dataset(X_test, y_test, categorical_feature=cat_features)
+
 
 # HP tuning
 opt_params = lgblss.hyper_opt(
     param_dict, dtrain,
-    num_boost_round=2000,
+    num_boost_round=20,
     nfold=5,
     early_stopping_rounds=20,
     max_minutes=1440,
@@ -119,27 +120,22 @@ opt_params = lgblss.hyper_opt(
 
 n_rounds = opt_params.pop("opt_rounds")
 
+print(f"Best number of boosters: {n_rounds}")
+
 # Train final model
-dtrain_final = lgb.Dataset(X_trainval, y_trainval)
 model = lgblss.train(opt_params, dtrain_final, num_boost_round=n_rounds)
 
 # Predict and evaluate
-forecast = lgblss.predict(X_test)
+#forecast = lgblss.predict(dtest)
 #forecast = apply_safety_net(forecast, y_trainval.values)
 
 # rmse = np.sqrt(mean_squared_error(forecast["loc"], y_test))
 # nll = -norm(forecast["loc"], forecast["scale"]).logpdf(y_test).mean()
-
-# # Evaluate CRPS
-# samples = np.array([
-#     np.random.normal(loc=loc, scale=scale, size=100)
-#     for loc, scale in zip(forecast["loc"], forecast["scale"])
-# ])
 # crps_total, crps_cal, crps_sha = crps(y_test, samples)
 
 # Evaluate at quantiles
 quantiles = [0.005, 0.025, 0.165, 0.25, 0.5, 0.75, 0.835, 0.975, 0.995]
-q_preds = lgblss.predict(X_test, pred_type="quantiles",
+q_preds = lgblss.predict(dtest, pred_type="quantiles",
                                 n_samples=200,
                                 quantiles=quantiles)
 
@@ -170,7 +166,7 @@ per_sample_metrics["n_rounds"] = n_rounds
 per_sample_metrics["dist"] = dist
 
 # Save to CSV
-log_file = f"logs/m5/clusters_detailed_scores.csv"
+log_file = f"logs/m5/clusters_detailed_scores_cat.csv"
 
 # Check if the file exists
 file_exists = os.path.exists(log_file)
@@ -187,7 +183,7 @@ with open(log_file, 'a+') as f:
         print(f"✅ Appended to existing scores in {log_file}")
 
 
-print(f"✅ Detailed scores saved to {log_file}")
+#print(f"✅ Detailed scores saved to {log_file}")
 
 # Save results
 os.makedirs("results/clusters/local", exist_ok=True)

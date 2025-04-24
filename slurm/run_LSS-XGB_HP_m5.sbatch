@@ -1,13 +1,13 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_LSSboost_M5/slurm-%A_%a.out # STDOUT
-#SBATCH --job-name=LSSboost_M5
+#SBATCH --output=./report/%A_XGBLSSboost_M5/slurm-%A_%a.out # STDOUT
+#SBATCH --job-name=XGBSSboost_M5
 #SBATCH --time=1-12:00:00
 #SBATCH --ntasks-per-node=1
-#SBATCH --job-name=LSSboost_M5
+#SBATCH --job-name=XGBSSboost_M5
 #SBATCH --partition=skylake,skylake_mpi
-#SBATCH --mem-per-cpu=25G
-#SBATCH --array=4,10,16,24,26,39,43,46,48,52,53,55,56,57,58,63,64,67,69,73,74,75,76,77,79,80,81,82,83,85,86,88,91,92,93,96,99,100
+#SBATCH --mem-per-cpu=15G
+#SBATCH --array=1-100
 #SBATCH --mail-type=ALL
 
 
@@ -42,4 +42,4 @@ dist='NegativeBinomial' #("NegativeBinomial" "Poisson" "Gaussian")
 # Echo the parameters and dataset for logging
 echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value and standardize=$standardize"
 
-python m5/m5_lssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $clip_value $standardize $dist
+python m5/m5_xgblssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $clip_value $standardize $dist

@@ -48,13 +48,22 @@ test_df = df[test_mask].copy()
 
 # Separate features and target
 y_trainval = train_df["demand"]
-X_trainval = train_df.drop(columns=["demand", "d"])
+X_trainval = train_df.drop(columns=["demand", "d", "item_id", "store_id"])
 
 y_test = test_df["demand"]
-X_test = test_df.drop(columns=["demand", "d"])
+X_test = test_df.drop(columns=["demand", "d", "item_id", "store_id"])
 
 # X_trainval, X_test, y_trainval, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 X_train, X_val, y_train, y_val = train_test_split(X_trainval, y_trainval, test_size=0.25, random_state=42)  # final split: 60/20/20
+
+# Define model with parameters received from command line
+# xgblss = XGBoostLSS(
+#     Gaussian(
+#         stabilization=stabilization, 
+#         response_fn=mode, 
+#         loss_fn="nll"
+#         )
+# )
 
 if dist == "Gaussian":
     xgblss = XGBoostLSS(
@@ -81,24 +90,18 @@ if standardize:
     y_std = np.std(y_train)
     xgblss.start_values = np.array([0, 1])  # standard normal
 else:
-    xgblss.start_values = np.array([np.log(np.mean(y_train)), np.log(np.std(y_train))])
+    xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
 param_dict = {
-    "eta": ["float", {"low": 1e-5, "high": 1e-1, "log": True}],
+    "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "min_child_weight": ["int", {"low": 1, "high": 100, "log": True}],
     "subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}],
     #'device':  ["categorical", ['cuda']],
 }
 
-
-# columns store_id and item_id are categories
-X_trainval = X_trainval.astype({"store_id": "category", "item_id": "category", "wday": "category", "weekend_plus": "category"})
-X_test = X_test.astype({"store_id": "category", "item_id": "category", "wday": "category", "weekend_plus": "category"})
-X_train = X_train.astype({"store_id": "category", "item_id": "category", "wday": "category", "weekend_plus": "category"})
-
 # Create DMatrix for XGBoost
-dtrain = xgb.DMatrix(X_train, label=y_train, enable_categorical=True)
+dtrain = xgb.DMatrix(X_train, label=y_train)
 
 # HP tuning
 opt_params = xgblss.hyper_opt(
@@ -116,12 +119,12 @@ opt_params = xgblss.hyper_opt(
 n_rounds = opt_params.pop("opt_rounds")
 
 # Train final model
-dtrain_final = xgb.DMatrix(X_trainval, label=y_trainval, enable_categorical=True)
+dtrain_final = xgb.DMatrix(X_trainval, label=y_trainval)
 model = xgblss.train(opt_params, dtrain_final, num_boost_round=n_rounds)
 
 # Predict and evaluate
-dtest = xgb.DMatrix(X_test, enable_categorical=True)
-#forecast = xgblss.predict(dtest)
+dtest = xgb.DMatrix(X_test)
+forecast = xgblss.predict(dtest)
 #forecast = apply_safety_net(forecast, y_trainval.values)
 
 # Evaluate at quantiles
@@ -157,7 +160,7 @@ per_sample_metrics["n_rounds"] = n_rounds
 per_sample_metrics["dist"] = dist
 
 # Save to CSV
-log_file = f"logs/m5/xgblss_clusters_detailed_scores_init_values_cat.csv"
+log_file = f"logs/m5/xgblss_clusters_detailed_scores_.csv"
 
 # Check if the file exists
 file_exists = os.path.exists(log_file)

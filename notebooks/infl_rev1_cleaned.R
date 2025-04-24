@@ -33,8 +33,8 @@ sales <- fread(file.path(path, "sales_train_evaluation.csv"))
 # Calendar
 calendar[['date']] <- as.Date(calendar[['date']])
 calendar[['dayofmonth']] <- as.numeric(format(calendar[['date']], "%d"))
-calendar[, `:=`( weekday = NULL, 
-                d = as.integer(substring(d, 3)))]
+#calendar[, `:=`( weekday = NULL, 
+#                d = as.integer(substring(d, 3)))]
 cols <- c("event_name_1", "event_type_1")#, "event_name_2", "event_type_2")
 calendar[, (cols) := lapply(.SD, function(z) as.integer(as.factor(z))), .SDcols = cols]
 
