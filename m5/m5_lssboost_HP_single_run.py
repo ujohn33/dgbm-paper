@@ -38,6 +38,16 @@ cluster_path = f"data/train_cluster_{cluster_id}.csv"
 # Load data
 df = pd.read_csv(cluster_path)
 
+cat_features = ["store_id", "item_id", "wday", "weekend_plus"]
+
+# Convert categorical columns to consecutive integers starting from 0
+for col in cat_features:
+    # Create a mapping of original values to consecutive integers
+    unique_values = df[col].unique()
+    mapping = {val: idx for idx, val in enumerate(unique_values)}
+    # Apply the mapping to all datasets
+    df[col] = df[col].map(mapping)
+
 # Identify the last date
 max_d = df["d"].max()
 
@@ -55,8 +65,6 @@ X_test = test_df.drop(columns=["demand", "d"])
 
 # X_trainval, X_test, y_trainval, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 X_train, X_val, y_train, y_val = train_test_split(X_trainval, y_trainval, test_size=0.25, random_state=42)  # final split: 60/20/20
-
-cat_features = [X_train.columns.get_loc(col) for col in ["store_id", "item_id", "wday", "weekend_plus"]]
 
 if dist == "Gaussian":
     lgblss = LightGBMLSS(
@@ -94,21 +102,22 @@ param_dict = {
     "lambda_l1": ["float", {"low": 1e-8, "high": 10, "log": True}],
     "histogram_pool_size": ["int", {"low": 1e3, "high": 5e3, "log": True}],
     "feature_pre_filter": ["categorical", [False]],
-    'device': ["categorical", ['cuda']],
+    #'device': ["categorical", ['cuda']],
+    #'categorical_feature': ["categorical", [cat_features]],
 }
 
 # if cuda is available, use it
-# param_dict["device"] = ["categorical", ['cuda']] if torch.cuda.is_available() else ["categorical", ['cpu']]
+param_dict["device"] = ["categorical", ['cuda']] if torch.cuda.is_available() else ["categorical", ['cpu']]
 
-dtrain = lgb.Dataset(X_train, y_train, categorical_feature=cat_features)
-dtrain_final = lgb.Dataset(X_trainval, y_trainval, categorical_feature=cat_features)
-dtest = lgb.Dataset(X_test, y_test, categorical_feature=cat_features)
+dtrain = lgb.Dataset(X_train, y_train, categorical_feature=cat_features, free_raw_data=False)
+dtrain_final = lgb.Dataset(X_trainval, y_trainval, categorical_feature=cat_features, free_raw_data=False)
+dtest = lgb.Dataset(X_test, y_test, categorical_feature=cat_features, free_raw_data=False)
 
 
 # HP tuning
 opt_params = lgblss.hyper_opt(
     param_dict, dtrain,
-    num_boost_round=20,
+    num_boost_round=2000,
     nfold=5,
     early_stopping_rounds=20,
     max_minutes=1440,
@@ -123,7 +132,7 @@ n_rounds = opt_params.pop("opt_rounds")
 print(f"Best number of boosters: {n_rounds}")
 
 # Train final model
-model = lgblss.train(opt_params, dtrain_final, num_boost_round=n_rounds)
+model = lgblss.train(opt_params, dtrain_final, num_boost_round=n_rounds, categorical_feature=cat_features)
 
 # Predict and evaluate
 #forecast = lgblss.predict(dtest)
@@ -135,7 +144,7 @@ model = lgblss.train(opt_params, dtrain_final, num_boost_round=n_rounds)
 
 # Evaluate at quantiles
 quantiles = [0.005, 0.025, 0.165, 0.25, 0.5, 0.75, 0.835, 0.975, 0.995]
-q_preds = lgblss.predict(dtest, pred_type="quantiles",
+q_preds = lgblss.predict(X_test, pred_type="quantiles",
                                 n_samples=200,
                                 quantiles=quantiles)
 
@@ -166,7 +175,7 @@ per_sample_metrics["n_rounds"] = n_rounds
 per_sample_metrics["dist"] = dist
 
 # Save to CSV
-log_file = f"logs/m5/clusters_detailed_scores_cat.csv"
+log_file = f"logs/m5/clusters_detailed_scores_cat_cpu.csv"
 
 # Check if the file exists
 file_exists = os.path.exists(log_file)

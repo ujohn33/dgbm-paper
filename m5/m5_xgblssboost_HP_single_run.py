@@ -1,14 +1,17 @@
 import os, sys, json, time
 import pandas as pd
 import numpy as np
+import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from scipy.stats import norm
+import pickle
 from xgboostlss.model import *
 from xgboostlss.distributions.Gaussian import *
 from xgboostlss.distributions.NegativeBinomial import *
 from xgboostlss.distributions.ZINB import *
 from xgboostlss.distributions.Poisson import *
+from sklearn.preprocessing import OrdinalEncoder
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
 from utils.safety import apply_safety_net
@@ -29,17 +32,37 @@ clip_value = None if sys.argv[5].lower() == "none" else float(sys.argv[5]) if le
 standardize = sys.argv[6].lower() == "true" if len(sys.argv) > 6 else False
 dist = sys.argv[7] if len(sys.argv) > 7 else "NegativeBinomial"
 
-
 # Log received parameters
 print(f"Parameters: mode={mode}, natural_grad={natural_grad}, stabilization={stabilization}, clip_value={clip_value}, standardize={standardize}")
 
 cluster_path = f"data/train_cluster_{cluster_id}.csv"
 
+def enc_transform(X: pd.DataFrame, ordinal_encoder, categorical_features) -> pd.DataFrame:
+        """
+        Transforms list represented by categorical_features to categorical_codes
+        """
+        X = X.copy()
+        cat_cols = ordinal_encoder.transform(X[categorical_features])
+
+        for i, name in enumerate(categorical_features):
+            cat_cols[name] = pd.Categorical.from_codes(codes=cat_cols[name].astype(np.int32), categories=ordinal_encoder.categories_[i])
+        X[categorical_features] = cat_cols
+        return X
+
+
+categorical_features = ["store_id", "item_id", "wday", "weekend_plus"]
+
 # Load data
 df = pd.read_csv(cluster_path)
 
+# Set Encoder 
+ord_enc = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1, encoded_missing_value = -1, min_frequency=500).set_output(transform="pandas").fit(df[categorical_features])
+
 # Identify the last date
 max_d = df["d"].max()
+
+#Transform Data and form Dmatrix
+df = enc_transform(df, ord_enc, categorical_features)
 
 # Create train/test split like in R
 test_mask = df["d"] == max_d
@@ -47,14 +70,18 @@ train_df = df[~test_mask].copy()
 test_df = df[test_mask].copy()
 
 # Separate features and target
-y_trainval = train_df["demand"]
-X_trainval = train_df.drop(columns=["demand", "d"])
+y_train = train_df["demand"]
+X_train = train_df.drop(columns=["demand", "d"])
+
+feature_types = ["c" if str(c) == "category" else ("i" if str(c) == "bool" else "q") for c in X_train.dtypes]
+
 
 y_test = test_df["demand"]
 X_test = test_df.drop(columns=["demand", "d"])
 
-# X_trainval, X_test, y_trainval, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-X_train, X_val, y_train, y_val = train_test_split(X_trainval, y_trainval, test_size=0.25, random_state=42)  # final split: 60/20/20
+# prepare XMatrix
+dtrain = xgb.DMatrix(X_train, y_train, enable_categorical=True, missing=-1, feature_types=feature_types)
+dtest = xgb.DMatrix(X_test, y_test, enable_categorical=True, missing=-1, feature_types=feature_types)
 
 if dist == "Gaussian":
     xgblss = XGBoostLSS(
@@ -81,24 +108,19 @@ if standardize:
     y_std = np.std(y_train)
     xgblss.start_values = np.array([0, 1])  # standard normal
 else:
-    xgblss.start_values = np.array([np.log(np.mean(y_train)), np.log(np.std(y_train))])
+    #xgblss.start_values = np.array([np.mean(y_train), np.std(y_train)])
+    xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
+
 
 param_dict = {
     "eta": ["float", {"low": 1e-5, "high": 1e-1, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "min_child_weight": ["int", {"low": 1, "high": 100, "log": True}],
     "subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}],
+    #"enable_categorical": ["categorical", [True]],
+    #"tree_method": ["categorical", ['hist']],
     #'device':  ["categorical", ['cuda']],
 }
-
-
-# columns store_id and item_id are categories
-X_trainval = X_trainval.astype({"store_id": "category", "item_id": "category", "wday": "category", "weekend_plus": "category"})
-X_test = X_test.astype({"store_id": "category", "item_id": "category", "wday": "category", "weekend_plus": "category"})
-X_train = X_train.astype({"store_id": "category", "item_id": "category", "wday": "category", "weekend_plus": "category"})
-
-# Create DMatrix for XGBoost
-dtrain = xgb.DMatrix(X_train, label=y_train, enable_categorical=True)
 
 # HP tuning
 opt_params = xgblss.hyper_opt(
@@ -115,12 +137,8 @@ opt_params = xgblss.hyper_opt(
 
 n_rounds = opt_params.pop("opt_rounds")
 
-# Train final model
-dtrain_final = xgb.DMatrix(X_trainval, label=y_trainval, enable_categorical=True)
-model = xgblss.train(opt_params, dtrain_final, num_boost_round=n_rounds)
+model = xgblss.train(opt_params, dtrain, num_boost_round=n_rounds)
 
-# Predict and evaluate
-dtest = xgb.DMatrix(X_test, enable_categorical=True)
 #forecast = xgblss.predict(dtest)
 #forecast = apply_safety_net(forecast, y_trainval.values)
 
@@ -157,7 +175,7 @@ per_sample_metrics["n_rounds"] = n_rounds
 per_sample_metrics["dist"] = dist
 
 # Save to CSV
-log_file = f"logs/m5/xgblss_clusters_detailed_scores_init_values_cat.csv"
+log_file = f"logs/m5/xgblss_clusters_detailed_scores_hist_cat.csv"
 
 # Check if the file exists
 file_exists = os.path.exists(log_file)

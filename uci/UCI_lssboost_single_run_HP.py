@@ -78,6 +78,30 @@ args = {
     "random_state": 1,
 }
 
+
+def detect_categorical_features(df, threshold_unique=20, threshold_ratio=0.05):
+    """
+    Detect likely categorical features in a DataFrame.
+    Parameters:
+    - df: pandas DataFrame
+    - threshold_unique: maximum number of unique values to consider a feature categorical
+    - threshold_ratio: maximum ratio of unique values to total samples to consider categorical
+    Returns:
+    - List of column names likely to be categorical
+    """
+    categorical_cols = []
+    for col in df.columns:
+        num_unique = df[col].nunique()
+        total_samples = len(df[col])
+        if pd.api.types.is_integer_dtype(df[col]):
+            if (num_unique <= threshold_unique) or (num_unique / total_samples <= threshold_ratio):
+                categorical_cols.append(col)
+        elif (pd.api.types.is_object_dtype(df[col]) or 
+              pd.api.types.is_categorical_dtype(df[col]) or 
+              pd.api.types.is_string_dtype(df[col])):
+            categorical_cols.append(col)
+    return categorical_cols
+
 # Define your hyperparameter space
 # param_dict = {
 #     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
@@ -113,7 +137,12 @@ def run_single_arguement(run_seed):
 
     # Load dataset -- use last column as labela
     data = dataset_name_to_loader[dset]()
-    X, y = data.iloc[:, :-1].values, data.iloc[:, -1].values
+    X, y = data.iloc[:, :-1], data.iloc[:, -1]
+
+    # Detect categorical features using the integrated function
+    cat_features = detect_categorical_features(data, threshold_unique=20, threshold_ratio=0.05)
+    print(f"Detected categorical features: {cat_features}")
+
 
     print(f"== Dataset={dset} X.shape={str(X.shape)} {args['score']}/{args['distn']} Standardize={args['standardize']}")
     if dset == "Year Prediciton MSD":
@@ -156,12 +185,17 @@ def run_single_arguement(run_seed):
         # print('test_index: ')
         # print(test_index)
         start_time = time.time()  # Start time measurement
-        X_trainall, X_test = X[train_index], X[test_index]
-        y_trainall, y_test = y[train_index], y[test_index]
+        # Use loc to keep as DataFrames (not values attribute)
+        X_trainall = X.iloc[train_index]
+        X_test = X.iloc[test_index]
+        y_trainall = y.iloc[train_index]
+        y_test = y.iloc[test_index]
 
+        # Split training data into train and validation
         X_train, X_val, y_train, y_val = train_test_split(
             X_trainall, y_trainall, test_size=0.2, random_state=args['random_state']
         )
+
 
         # Apply standardization based on the parameter
         if args['standardize'] or dset == "Year Prediciton MSD":
