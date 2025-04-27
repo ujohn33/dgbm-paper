@@ -5,6 +5,7 @@ import json
 import numpy as np
 import pandas as pd
 import time
+import torch
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from xgboostlss.model import *
@@ -26,20 +27,19 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 np.random.seed(1)
 
 # Get command-line arguments
-if len(sys.argv) != 6:
-    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization> <quantile_clipping>")
-    sys.exit(1)
+print("Usage: python UCI_lssboost_single_run_HP.py <seed_id> <mode> <natural_grad> <stabilization> <standardize>")
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
 stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
-quantile_clipping = sys.argv[5].lower() == 'true'
-clip_value = None
+clip_value = None if len(sys.argv) <= 5 or sys.argv[5] == 'None' else float(sys.argv[5])
+standardize = False if len(sys.argv) <= 6 else sys.argv[6].lower() == 'true'
+    
 
 if natural_grad:
-    method_name = f"XGBoostLSS_natural_{mode}_{stabilization}_{quantile_clipping}_qclip"
+    method_name = f"XGBoostLSS_natural_{mode}_{stabilization}"
 else:
-    method_name = f"XGBoostLSS_no_natural_{mode}_{stabilization}_{quantile_clipping}_qclip"
+    method_name = f"XGBoostLSS_no_natural_{mode}_{stabilization}"
 
 # Define constants and parameters
 args = {
@@ -47,8 +47,6 @@ args = {
     "mode": mode,
     "stabilization": stabilization, #"MAD", "L2", None
     "natural_grad": natural_grad, #True, False
-    "quantile_clipping": quantile_clipping, #True, False
-    "clip_value": clip_value,
     "n_est": 2000,
     "n_splits": 5,
     "score": "MLE",
@@ -64,9 +62,12 @@ param_dict = {
     "min_child_weight": ["int", {"low": 1, "high": 100, "log": True}],
     "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
     "subsample": ["float", {"low": 0.5, "high": 1.0, "log": False}],
-    'device':  ["categorical", ['cuda']],
-    'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
+    "lambda_l1": ["float", {"low": 1e-8, "high": 10, "log": True}],
+    #'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
 }
+
+param_dict["device"] = ["categorical", ['cuda']] if torch.cuda.is_available() else ["categorical", ['cpu']]
+
 
 def encode_categorical_columns(df):
     for col in df.select_dtypes(include=['category']).columns:
@@ -102,8 +103,7 @@ def run_single_argument(task_id):
     start_time = time.time()  # Start time measurement
 
     xgblss = XGBoostLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", 
-                                 natural_gradient=args["natural_grad"], quantile_clipping=args["quantile_clipping"],
-                                 clip_value=args["clip_value"]))
+                                 natural_gradient=args["natural_grad"]))
     xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
     np.random.seed(123)
