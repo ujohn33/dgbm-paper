@@ -7,7 +7,7 @@
 #SBATCH --job-name=LSSboost_M5
 #SBATCH --partition=skylake,skylake_mpi
 #SBATCH --mem-per-cpu=25G
-#SBATCH --array=4,10,16,24,26,39,43,46,48,52,53,55,56,57,58,63,64,67,69,73,74,75,76,77,79,80,81,82,83,85,86,88,91,92,93,96,99,100
+#SBATCH --array=1-100
 #SBATCH --mail-type=ALL
 
 
@@ -19,6 +19,7 @@
 
 module load Python/3.11.3-GCCcore-12.3.0
 module load IPython/8.14.0-GCCcore-12.3.0
+module load LightGBM/4.5.0-foss-2023a
 module load jupyter-server/2.14.0-GCCcore-12.3.0
 module load aiohttp/3.8.5-GCCcore-12.3.0
 module load Optuna/3.5.0-foss-2023a

@@ -70,7 +70,7 @@ args = {
     "natural_grad": natural_grad,
     "stabilization": stabilization, # None, 'L2', "MAD"  
     "clip_value": clip_value,
-    "n_est": 1000,
+    "n_est": 2000,
     "n_splits": 20,
     "score": "MLE",
     "distn": "Normal",
@@ -126,8 +126,9 @@ param_dict = {
     "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "feature_pre_filter": ["categorical", [False]],
-    'device':  ["categorical", ['cuda']],
 }
+
+param_dict["device"] = ["categorical", ['cuda']] if torch.cuda.is_available() else ["categorical", ['cpu']]
 
 def run_single_arguement(run_seed):
     dset = dataset_list[int(run_seed)]
@@ -140,8 +141,8 @@ def run_single_arguement(run_seed):
     X, y = data.iloc[:, :-1], data.iloc[:, -1]
 
     # Detect categorical features using the integrated function
-    cat_features = detect_categorical_features(data, threshold_unique=20, threshold_ratio=0.05)
-    print(f"Detected categorical features: {cat_features}")
+    # cat_features = detect_categorical_features(X, threshold_unique=20, threshold_ratio=0.05)
+    # print(f"Detected categorical features: {cat_features}")
 
 
     print(f"== Dataset={dset} X.shape={str(X.shape)} {args['score']}/{args['distn']} Standardize={args['standardize']}")
@@ -209,6 +210,7 @@ def run_single_arguement(run_seed):
             pass
 
         full_train_data = lgb.Dataset(X_trainall, y_trainall)
+        #full_train_data = lgb.Dataset(X_trainall, y_trainall, categorical_feature=cat_features, free_raw_data=False)
 
         start_time = time.time()
         lgblss = LightGBMLSS(
@@ -238,6 +240,11 @@ def run_single_arguement(run_seed):
         dtrain = lgb.Dataset(X_train, y_train)
         deval = lgb.Dataset(X_val, y_val)
         dtest = lgb.Dataset(X_test, y_test)
+
+        # dtrain = lgb.Dataset(X_train, y_train, categorical_feature=cat_features, free_raw_data=False)
+        # deval = lgb.Dataset(X_val, y_val, categorical_feature=cat_features, free_raw_data=False)
+        # dtest = lgb.Dataset(X_test, y_test, categorical_feature=cat_features, free_raw_data=False)
+
         # Training with early stopping
         evals_result = {}
         opt_params['early_stopping'] = 20

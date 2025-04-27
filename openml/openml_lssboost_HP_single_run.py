@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import time
 import csv
+import torch
+import lightgbm as lgb
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from lightgbmlss.model import *
@@ -24,15 +26,37 @@ np.random.seed(123)
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
 # Get command-line arguments
-if len(sys.argv) != 6:
-    print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization> <stabilization> <quantile_clipping>")
-    sys.exit(1)
+print("Usage: python UCI_lssboost_single_run_HP.py <seed_id> <mode> <natural_grad> <stabilization> <standardize>")
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
 stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
-clip = sys.argv[5].lower() == 'true'
-#quantile_clipping = sys.argv[5].lower() == 'true'
+clip_value = None if len(sys.argv) <= 5 or sys.argv[5] == 'None' else float(sys.argv[5])
+standardize = False if len(sys.argv) <= 6 else sys.argv[6].lower() == 'true'
+    
+
+def detect_categorical_features(df, threshold_unique=20, threshold_ratio=0.05):
+    """
+    Detect likely categorical features in a DataFrame.
+    Parameters:
+    - df: pandas DataFrame
+    - threshold_unique: maximum number of unique values to consider a feature categorical
+    - threshold_ratio: maximum ratio of unique values to total samples to consider categorical
+    Returns:
+    - List of column names likely to be categorical
+    """
+    categorical_cols = []
+    for col in df.columns:
+        num_unique = df[col].nunique()
+        total_samples = len(df[col])
+        if pd.api.types.is_integer_dtype(df[col]):
+            if (num_unique <= threshold_unique) or (num_unique / total_samples <= threshold_ratio):
+                categorical_cols.append(col)
+        elif (pd.api.types.is_object_dtype(df[col]) or 
+              pd.api.types.is_categorical_dtype(df[col]) or 
+              pd.api.types.is_string_dtype(df[col])):
+            categorical_cols.append(col)
+    return categorical_cols
 
 # Define constants and parameters
 args = {
@@ -51,9 +75,9 @@ args = {
 
 
 if natural_grad:
-    method_name = f'LSSboost_natural_{mode}_{stabilization}_{clip}_clip'
+    method_name = f'LSSboost_natural_{mode}_{stabilization}'
 else:
-    method_name = f'LSSboost_no_natural_{mode}_{stabilization}_{clip}_clip'
+    method_name = f'LSSboost_no_natural_{mode}_{stabilization}'
 
 
 # Obtain the benchmark suite from OpenML
@@ -61,19 +85,18 @@ benchmark_suite = openml.study.get_suite(args['SUITE_ID'])  # obtain the benchma
 
 # Define your hyperparameter space
 param_dict = {
-    "eta": ["float", {"low": 1e-5, "high": 0.4, "log": True}],
+    "eta": ["float", {"low": 1e-5, "high": 1e-1, "log": True}],
     "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
     "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],  # Constant for this example
     "feature_pre_filter": ["categorical", [False]],
-    'device':  ["categorical", ['cpu']],
     #'clip_value': ["float", {"low": 1e-6, "high": 1e-1, "log": True}],
     #'deterministic': ["categorical", [True]],
     #'min_child_weight': ["categorical", [1]],
     #"histogram_pool_size": ["categorical", [16384]],
 }
-if clip == False:
-    del param_dict['clip_value']
+
+param_dict["device"] = ["categorical", ['cuda']] if torch.cuda.is_available() else ["categorical", ['cpu']]
 
 def run_single_argument(task_id):
     task = openml.tasks.get_task(task_id)  # download the OpenML task
@@ -82,6 +105,10 @@ def run_single_argument(task_id):
     X, y, categorical_indicator, attribute_names = dataset.get_data(
         dataset_format="dataframe", target=dataset.default_target_attribute
     )
+
+    # Detect categorical features using the integrated function
+    # cat_features = detect_categorical_features(X, threshold_unique=20, threshold_ratio=0.05)
+    # print(f"Detected categorical features: {cat_features}")
 
     lss_rmse, lss_nll, times = [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
@@ -98,6 +125,7 @@ def run_single_argument(task_id):
     y_train_opt, y_test_opt = y.iloc[train_indices], y.iloc[test_indices]
 
     dtrain = lgb.Dataset(X_train_opt, y_train_opt)
+    #dtrain = lgb.Dataset(X_train_opt, y_train_opt, categorical_feature=cat_features, free_raw_data=False)
 
     start_time = time.time()  # Start time measurement
 
@@ -137,6 +165,10 @@ def run_single_argument(task_id):
         dtrain = lgb.Dataset(X_train, y_train)
         deval = lgb.Dataset(X_val, y_val)
         dtest = lgb.Dataset(X_test, y_test)
+
+        # dtrain = lgb.Dataset(X_train, y_train, categorical_feature=cat_features, free_raw_data=False)
+        # deval = lgb.Dataset(X_val, y_val, categorical_feature=cat_features, free_raw_data=False)
+        # dtest = lgb.Dataset(X_test, y_test, categorical_feature=cat_features, free_raw_data=False)
         opt_params['early_stopping'] = 20
 
         gbm = lgblss.train(opt_params, dtrain, 
@@ -156,7 +188,7 @@ def run_single_argument(task_id):
         forecast = lgblss.predict(X_test)
 
         # Apply the safety net to the predictions
-        forecast = apply_safety_net(forecast, y_trainall.values)
+        #forecast = apply_safety_net(forecast, y_trainall.values)
         
         runtime_pred = time.time() - runtime_start
 
