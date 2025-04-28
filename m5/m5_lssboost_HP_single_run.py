@@ -21,6 +21,29 @@ if len(sys.argv) < 2:
     print("Usage: python m5_lssboost_HP_single_run.py <cluster_id> [mode] [natural_grad] [stabilization] [clip_value] [standardize]")
     sys.exit(1)
 
+def detect_categorical_features(df, threshold_unique=20, threshold_ratio=0.05):
+    """
+    Detect likely categorical features in a DataFrame.
+    Parameters:
+    - df: pandas DataFrame
+    - threshold_unique: maximum number of unique values to consider a feature categorical
+    - threshold_ratio: maximum ratio of unique values to total samples to consider categorical
+    Returns:
+    - List of column names likely to be categorical
+    """
+    categorical_cols = []
+    for col in df.columns:
+        num_unique = df[col].nunique()
+        total_samples = len(df[col])
+        if pd.api.types.is_integer_dtype(df[col]):
+            if (num_unique <= threshold_unique) or (num_unique / total_samples <= threshold_ratio):
+                categorical_cols.append(col)
+        elif (pd.api.types.is_object_dtype(df[col]) or 
+              pd.api.types.is_categorical_dtype(df[col]) or 
+              pd.api.types.is_string_dtype(df[col])):
+            categorical_cols.append(col)
+    return categorical_cols
+
 # Parse arguments
 cluster_id = int(sys.argv[1])
 mode = sys.argv[2] if len(sys.argv) > 2 else "exp"
@@ -38,7 +61,7 @@ cluster_path = f"data/train_cluster_{cluster_id}.csv"
 # Load data
 df = pd.read_csv(cluster_path)
 
-cat_features = ["store_id", "item_id", "wday", "weekend_plus"]
+cat_features = ["weekend_plus"]
 
 # Convert categorical columns to consecutive integers starting from 0
 for col in cat_features:
@@ -51,6 +74,24 @@ for col in cat_features:
 # Identify the last date
 max_d = df["d"].max()
 
+# 1. Target mean encoding for item_id
+item_target_mean = df.groupby('item_id')['demand'].mean()
+df['item_id_enc'] = df['item_id'].map(item_target_mean)
+
+# 2. Target mean encoding for store_id
+store_target_mean = df.groupby('store_id')['demand'].mean()
+df['store_id_enc'] = df['store_id'].map(store_target_mean)
+
+store_item_id = df.groupby(['store_id', 'item_id'])['demand'].mean()
+df['store_item_id_enc'] = df.apply(lambda x: store_item_id[x['store_id'], x['item_id']], axis=1)
+
+df.drop(columns=["item_id", "store_id"], inplace=True)
+
+cat_features = ["weekend_plus"]
+
+# Detect categorical features for logging
+print(f"Detected categorical features: {detect_categorical_features(df, threshold_unique=20, threshold_ratio=0.05)}")
+
 # Create train/test split like in R
 test_mask = df["d"] == max_d
 train_df = df[~test_mask].copy()
@@ -58,10 +99,10 @@ test_df = df[test_mask].copy()
 
 # Separate features and target
 y_trainval = train_df["demand"]
-X_trainval = train_df.drop(columns=["demand", "d"])
+X_trainval = train_df.drop(columns=["demand", "d", "wday"])
 
 y_test = test_df["demand"]
-X_test = test_df.drop(columns=["demand", "d"])
+X_test = test_df.drop(columns=["demand", "d", "wday"])
 
 # X_trainval, X_test, y_trainval, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 X_train, X_val, y_train, y_val = train_test_split(X_trainval, y_trainval, test_size=0.25, random_state=42)  # final split: 60/20/20
@@ -91,8 +132,13 @@ if standardize:
     y_std = np.std(y_train)
     lgblss.start_values = np.array([0, 1])  # standard normal
 else:
-    #lgblss.start_values = np.array([np.mean(y_train), np.std(y_train)])
-    lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
+    # For NegativeBinomial: loc = mean of y, scale/dispersion = variance / mean - 1
+    mu_init = np.maximum(np.mean(y_train), 1e-2)    # avoid exactly zero
+    var_init = np.maximum(np.var(y_train), 1e-2)
+    disp_init = max(var_init / mu_init - 1, 1e-2)
+
+    lgblss.start_values = np.array([np.log(mu_init), np.log(disp_init)])
+    #lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
 
 param_dict = {
     "eta": ["float", {"low": 1e-5, "high": 1e-1, "log": True}],
@@ -102,6 +148,8 @@ param_dict = {
     "lambda_l1": ["float", {"low": 1e-8, "high": 10, "log": True}],
     "histogram_pool_size": ["int", {"low": 1e3, "high": 5e3, "log": True}],
     "feature_pre_filter": ["categorical", [False]],
+    # "min_child_sample": ["categorical", [1]],
+    # "min_child_weight": ["categorical", [1/X_train.shape[0]]],
     #'device': ["categorical", ['cuda']],
     #'categorical_feature': ["categorical", [cat_features]],
 }
@@ -175,7 +223,7 @@ per_sample_metrics["n_rounds"] = n_rounds
 per_sample_metrics["dist"] = dist
 
 # Save to CSV
-log_file = f"logs/m5/clusters_detailed_scores_cat_cpu.csv"
+log_file = f"logs/m5/clusters_detailed_scores_target_encoded_cat_cpu.csv"
 
 # Check if the file exists
 file_exists = os.path.exists(log_file)
