@@ -33,7 +33,7 @@ cd /scratch/brussel/105/vsc10528/LSSboost
 
 # Fixed values
 dataset=$SLURM_ARRAY_TASK_ID
-mode="exp"
+mode="softplus" # ("softplus" "relu" "exp")
 natural_grad="False" #("True" "False")
 stabilization="None"
 clip_value="None"

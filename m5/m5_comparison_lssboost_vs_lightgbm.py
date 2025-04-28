@@ -65,6 +65,8 @@ mode = sys.argv[2] if len(sys.argv) > 2 else "exp"
 stabilization = sys.argv[3] if len(sys.argv) > 3 else 'None'
 dist = sys.argv[4] if len(sys.argv) > 4 else "NegativeBinomial"
 
+method_name = f'{mode}_{stabilization}_{dist}'
+
 # Log received parameters
 print(f"Parameters: cluster_id={cluster_id}, mode={mode}, stabilization={stabilization}, dist={dist}")
 
@@ -191,7 +193,6 @@ for period_name, days in training_periods.items():
     
     # Define hyperparameter space
     param_dict = {
-        "eta": ["float", {"low": 1e-5, "high": 1e-1, "log": True}],
         "max_depth": ["int", {"low": 2, "high": 10, "log": False}],
         "num_leaves": ["int", {"low": 20, "high": 100, "log": False}],
         "min_data_in_leaf": ["int", {"low": 20, "high": 100, "log": False}],
@@ -199,6 +200,11 @@ for period_name, days in training_periods.items():
         "histogram_pool_size": ["int", {"low": 1e3, "high": 5e3, "log": True}],
         "feature_pre_filter": ["categorical", [False]],
     }
+
+    if len(X_train) > 10000:  # Adjust threshold as needed
+        param_dict["eta"] = ["float", {"low": 1e-6, "high": 5e-3, "log": True}]
+    else:
+        param_dict["eta"] = ["float", {"low": 1e-5, "high": 1e-1, "log": True}]
 
     # Add device parameter if CUDA is available
     param_dict["device"] = ["categorical", ['cuda']] if torch.cuda.is_available() else ["categorical", ['cpu']]
@@ -438,8 +444,8 @@ for period_name, days in training_periods.items():
     print(f"- LightGBM Avg Pinball Loss: {avg_ql_lgbm:.4f}, RMSE: {rmse_lgbm:.4f}, Time: {lgbm_time:.1f}s")
 
 # Change the file paths to be shared across clusters
-results_output_path = f"results/m5/comparison/all_clusters_comparison_results.csv"
-detailed_output_path = f"logs/m5/comparison/all_clusters_detailed_comparison.csv"
+results_output_path = f"results/m5/comparison/all_clusters_comparison_results_{method_name}.csv"
+detailed_output_path = f"logs/m5/comparison/all_clusters_detailed_comparison_{method_name}.csv"
 
 # Check if the summary results file already exists and append to it if it does
 if os.path.exists(results_output_path):
