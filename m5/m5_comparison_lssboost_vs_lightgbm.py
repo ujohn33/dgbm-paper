@@ -53,6 +53,7 @@ def detect_categorical_features(df, threshold_unique=20, threshold_ratio=0.05):
 training_periods = {
     "1_week": 7,
     "2_weeks": 14,
+    "3_weeks": 21,
     "1_month": 30,
     "3_months": 90,
     "6_months": 180,
@@ -65,7 +66,9 @@ mode = sys.argv[2] if len(sys.argv) > 2 else "exp"
 stabilization = sys.argv[3] if len(sys.argv) > 3 else 'None'
 dist = sys.argv[4] if len(sys.argv) > 4 else "NegativeBinomial"
 
-method_name = f'{mode}_{stabilization}_{dist}'
+# today's date
+today = pd.to_datetime("today").strftime("%Y-%m-%d")
+method_name = f'{mode}_{stabilization}_{dist}_{today}'
 
 # Log received parameters
 print(f"Parameters: cluster_id={cluster_id}, mode={mode}, stabilization={stabilization}, dist={dist}")
@@ -170,12 +173,20 @@ for period_name, days in training_periods.items():
             )
         )
     elif dist == "NegativeBinomial":
-        lgblss = LightGBMLSS(
-            NegativeBinomial(
-                stabilization=stabilization,
-                response_fn_total_count=mode,
+        if len(X_train) > 20000:  # Adjust threshold as needed
+            lgblss = LightGBMLSS(
+                NegativeBinomial(
+                    stabilization=stabilization,
+                    response_fn_total_count='softplus',
+                )
             )
-        )
+        else:
+            lgblss = LightGBMLSS(
+                NegativeBinomial(
+                    stabilization=stabilization,
+                    response_fn_total_count='exp',
+                )
+            )
     else:
         raise ValueError(f"Unknown distribution: {dist}")
 
@@ -201,7 +212,7 @@ for period_name, days in training_periods.items():
         "feature_pre_filter": ["categorical", [False]],
     }
 
-    if len(X_train) > 10000:  # Adjust threshold as needed
+    if len(X_train) > 20000:  # Adjust threshold as needed
         param_dict["eta"] = ["float", {"low": 1e-6, "high": 5e-3, "log": True}]
     else:
         param_dict["eta"] = ["float", {"low": 1e-5, "high": 1e-1, "log": True}]

@@ -17,7 +17,6 @@ import pandas as pd
 import datetime as dt
 import lightgbm as lgb
 import matplotlib.pyplot as plt
-import seaborn as sns
 from collections import Counter
 from scipy.stats.mstats import gmean
 from sklearn.model_selection import RandomizedSearchCV, GroupKFold, LeaveOneGroupOut
@@ -167,7 +166,7 @@ class DataLoader:
         self.day_to_cal_index = dict([(col, idx) for idx, col in enumerate(self.cal.index)])
         self.cal_index_to_day = dict([(idx, col) for idx, col in enumerate(self.cal.index)])
         self.cal_index_to_wm_yr_wk = dict([(idx, col) for idx, col in enumerate(self.cal.wm_yr_wk)])
-        self.day_to_wm_yr_wk = dict([(idx, col) for idx, col in self.cal.wm_yr_wk.iteritems()])
+        self.day_to_wm_yr_wk = dict([(idx, col) for idx, col in self.cal.wm_yr_wk.items()])
         
         # Load training data
         self.train = self._load_train()
@@ -372,6 +371,7 @@ class FeatureGenerator:
         self.cal = cal
         self.daily_sales = daily_sales
         self.config = config
+        self.series_id_level = None
         self.train_flipped = None
         self.features = []
         self.series_features = None
@@ -581,37 +581,37 @@ class FeatureGenerator:
             
             self.cal[etype.lower() + '_holiday'] = self.cal[etype.lower() + '_holiday'].astype('category')
     
+    def _clean_df(self, df):
+        early_rows = self.cal[self.cal.year == self.cal.year.min()].index.to_list()
+        holiday_rows = self.cal[self.cal.month.isin([10, 11, 12, 1])].index.to_list()
+        delete_rows = early_rows + holiday_rows
+        
+        min_day = 'd_300'
+        
+        if 'd' in df.columns:  # d, series stack
+            df = df[df.d >= self.day_to_cal_index[min_day]]
+            df = df[~df.d.isin([self.day_to_cal_index[d] for d in delete_rows])]
+        else:  # pivot table
+            if min_day in df.index:
+                df = df.iloc[df.index.get_loc(min_day):, :]
+                
+            if len(delete_rows) > 0:
+                df = df[~df.index.isin(delete_rows)]
+                
+        return df
+
     def _clean_features(self):
         """Clean features by removing early data and holiday months"""
-        def clean_df(df):
-            early_rows = self.cal[self.cal.year == self.cal.year.min()].index.to_list()
-            holiday_rows = self.cal[self.cal.month.isin([10, 11, 12, 1])].index.to_list()
-            delete_rows = early_rows + holiday_rows
-            
-            min_day = 'd_300'
-            
-            if 'd' in df.columns:  # d, series stack
-                df = df[df.d >= self.day_to_cal_index[min_day]]
-                df = df[~df.d.isin([self.day_to_cal_index[d] for d in delete_rows])]
-            else:  # pivot table
-                if min_day in df.index:
-                    df = df.iloc[df.index.get_loc(min_day):, :]
-                    
-                if len(delete_rows) > 0:
-                    df = df[~df.index.isin(delete_rows)]
-                    
-            return df
-        
         for idx, feat_row in enumerate(self.features):
             fr = feat_row[1]
-            fr = clean_df(fr)
+            fr = self._clean_df(fr)
             
             if len(fr) < len(feat_row[1]):
                 self.features[idx] = (self.features[idx][0], fr)
                 
         for idx, feat_row in enumerate(self.state_cal_features):
             fr = feat_row[1]
-            fr = clean_df(fr)
+            fr = self._clean_df(fr)
             
             if len(fr) < len(feat_row[1]):
                 self.state_cal_features[idx] = (self.state_cal_features[idx][0], fr)
@@ -668,9 +668,7 @@ class FeatureGenerator:
             'series': fstack.index.get_level_values(1).map(series_to_series_id).values.astype(np.int16),
             'days_since_first': (~self.train_flipped.isnull()).expanding().sum().stack(dropna=False).values.astype(np.int16),
             'trailing_vol': ((self.train_flipped.diff().abs()).expanding().mean()).astype(np.float16).stack(dropna=False).values,
-            'weights': (trailing_28d_sales / 
-                        trailing_28d_sales.transpose().groupby(self.levels).sum().loc[self.levels].transpose().values
-                       ).astype(np.float16).stack(dropna=False).values,
+            'weights': np.ones(len(fstack)).astype(np.float16),  # Replace with uniform weights
         })
         
         # Set weights for new items to 0
@@ -678,7 +676,7 @@ class FeatureGenerator:
         weight_stack.loc[new_items, 'weights'] = 0
         
         # Clean weight stack
-        weight_stack = clean_df(weight_stack)
+        weight_stack = self._clean_df(weight_stack)
         
         # Merge weight stack with series features
         assert len(weight_stack) == len(self.series_features)
@@ -709,7 +707,7 @@ class FeatureGenerator:
 class ModelTrainer:
     """Class for training M5 forecasting models"""
     
-    def __init__(self, series_features, y_full, cal_features, state_cal_features, config):
+    def __init__(self, series_features, y_full, cal_features, state_cal_features, config, series_id_level):
         """
         Initialize model trainer
         
@@ -725,6 +723,7 @@ class ModelTrainer:
         self.cal_features = cal_features
         self.state_cal_features = state_cal_features
         self.config = config
+        self.series_id_level = series_id_level
         self.quantile_wts = self._get_quantile_weights()
         self.clf_set = {}
         
@@ -773,27 +772,22 @@ class ModelTrainer:
         return self.clf_set
     
     def _get_level_os(self):
-        """Get level OS values"""
-        # Need to reconstruct level_multiplier
-        level_multiplier = {}
-        for level in sorted(self.series_features.series.map(lambda x: self.series_features.loc[x, 'level']).unique()):
-            level_multiplier[level] = (self.series_features.level == level).sum() / (self.series_features.level == 12).sum()
-            
-        return dict([(idx, 1/val) for (idx, val) in level_multiplier.items()])
+        """Get level OS values for levels 13, 14, 15 - no weighting"""
+        return {13: 1.0, 14: 1.0, 15: 1.0}
     
     def _get_subsample(self, frac, level, scale_range=0.1, n_repeats=1):
         """Get subsample of data for training"""
         start_time = dt.datetime.now()
         
-        wtg_mean = self.series_features.weights[
-            (self.series_features.series.map(lambda x: self.series_features.loc[x, 'level']) == level)
-        ].mean()
+        # Use series_id_level dictionary directly instead of looking for a 'level' column
+        level_filter = self.series_features.series.map(lambda x: self.series_id_level.get(x) == level)
+        
+        wtg_mean = self.series_features.weights[level_filter].mean()
         
         ss = self.series_features.weights / wtg_mean * frac
         
         X = self.series_features[
-            (ss > np.random.rand(len(ss)))
-            & (self.series_features.series.map(lambda x: self.series_features.loc[x, 'level']) == level)
+            (ss > np.random.rand(len(ss))) & level_filter
         ]
         
         ss = X.weights / wtg_mean * frac
@@ -855,9 +849,8 @@ class ModelTrainer:
         
         gc.collect()
         
-        # Extract scaler columns
-        scaler_columns = [c for c in X.columns if c in ['trailing_vol', 'weights']]
-        scalers = X[scaler_columns].copy()
+        # Extract scaler columns - only using trailing_vol, not weights
+        scalers = X[['trailing_vol']].copy()
         y = X.y
         
         # Define groups for CV
@@ -1004,7 +997,6 @@ class ModelTrainer:
                 for quantile in quantiles:
                     set_filter = (
                         (groups != group)
-                        & (np.random.rand(len(groups)) < self.quantile_wts[quantile] ** (0.35 if self.config.level >= 11 else 0.25))
                     )
                     
                     clf = model(
@@ -1148,7 +1140,8 @@ class M5Forecaster:
             self.feature_generator.y_full,
             self.feature_generator.cal_features,
             self.feature_generator.state_cal_features,
-            self.config
+            self.config,
+            self.feature_generator.series_id_level
         )
         
         clf_set = self.model_trainer.train_models()
