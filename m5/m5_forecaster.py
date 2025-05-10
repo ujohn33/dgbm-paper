@@ -869,7 +869,7 @@ class ModelTrainer:
             
         # Final drops
         X.drop(columns=(
-            scaler_columns + 
+            ['trailing_vol'] + 
             (['future_d'] if 'future_d' in X.columns else []) + 
             ['y'] + 
             feat_drops
