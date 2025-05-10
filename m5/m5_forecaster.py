@@ -755,9 +755,9 @@ class ModelTrainer:
         # Get level_os values
         level_os = self._get_level_os()
         
-        # Train models
+        # Train a single model instead of using bagging
         self.clf_set[level], loss_set = self._run_q_bags(
-            n_bags=int(self.config.bags * level_os[level] ** self.config.bags_pwr),
+            n_bags=1,  # Set to 1 to train a single model
             data=self._get_subsample(
                 ss_frac * level_os[level] ** self.config.ss_pwr,
                 level,
@@ -960,79 +960,80 @@ class ModelTrainer:
         assert len(nX) == len(X)
         return nX
     
-    def _run_q_bags(self, n_bags=3, data=None, quantiles=None, **kwargs):
+    def _run_q_bags(self, n_bags=1, data=None, quantiles=None, **kwargs):
         """Run multiple quantile bags"""
         start_time = dt.datetime.now()
         
         clf_set = []
         loss_set = []
         
-        for bag in range(0, n_bags):
-            print(f'\n\n  Running Bag {bag+1} of {n_bags}\n\n')
+        # Single bag since we're not using bagging anymore
+        print('\n\n  Running single model (no bagging)\n\n')
+        
+        if data is None:
+            X, y, groups, scalers = self._get_subsample()
+        else:
+            X, y, groups, scalers = data
             
-            if data is None:
-                X, y, groups, scalers = self._get_subsample()
-            else:
-                X, y, groups, scalers = data
-                
-            group_list = [*dict.fromkeys(groups)]
-            group_list.sort()
-            print(f"Groups: {group_list}")
+        group_list = [*dict.fromkeys(groups)]
+        group_list.sort()
+        print(f"Groups: {group_list}")
+        
+        clfs = []
+        preds = []
+        ys = []
+        datestack = []
+        losses = pd.DataFrame(index=quantiles)
+        
+        if self.config.single_fold:
+            group_list = group_list[-1:]
             
-            clfs = []
-            preds = []
-            ys = []
-            datestack = []
-            losses = pd.DataFrame(index=quantiles)
+        for group in group_list:
+            print(f'\n\n   Running Models with {group} Out-of-Fold\n\n')
+            x_holdout = X[groups == group]
+            y_holdout = y[groups == group]
             
-            if self.config.single_fold:
-                group_list = group_list[-1:]
-                
-            for group in group_list:
-                print(f'\n\n   Running Models with {group} Out-of-Fold\n\n')
-                x_holdout = X[groups == group]
-                y_holdout = y[groups == group]
-                
-                model = self._train_lgb_quantile
-                
-                q_clfs = []
-                q_losses = []
-                
-                for quantile in quantiles:
-                    set_filter = (
-                        (groups != group)
-                    )
-                    
-                    clf = model(
-                        X[set_filter],
-                        y[set_filter],
-                        groups[set_filter],
-                        alpha=quantile,
-                        **kwargs
-                    )
-                    
-                    q_clfs.append(clf)
-                    
-                    predicted = clf.predict(x_holdout)
-                    
-                    q_losses.append((quantile, self._quantile_loss(y_holdout, predicted, quantile)))
-                    print(f"{group} μ={quantile:.3f}: {q_losses[-1][1]:.4f}")
-                    
-                    preds.append(predicted)
-                    ys.append(y_holdout)
-                    
-                clfs.append(q_clfs)
-                print(f"\nLevel {self.config.level} OOS Losses for Bag {bag+1} in {group}:")
-                print(np.round(pd.DataFrame(q_losses).set_index(0)[1], 4))
-                losses[group] = np.round(pd.DataFrame(q_losses).set_index(0)[1], 4).values
-                print(f"\nElapsed Time So Far This Bag: {(dt.datetime.now() - start_time).seconds}s\n")
-                
-            clf_set.append(clfs)
-            print(f"\nLevel {self.config.level} Year-by-Year OOS Losses for Bag {bag}:")
-            print(losses)
+            model = self._train_lgb_quantile
             
-            loss_set.append(losses)
-            print(f"\nModel Bag Time: {(dt.datetime.now() - start_time).seconds}s\n")
+            q_clfs = []
+            q_losses = []
+            
+            for quantile in quantiles:
+                set_filter = (
+                    (groups != group)
+                    & (np.random.rand(len(groups)) < self.quantile_wts[quantile] ** (0.35 if self.config.level >= 11 else 0.25))
+                )
+                
+                clf = model(
+                    X[set_filter],
+                    y[set_filter],
+                    groups[set_filter],
+                    alpha=quantile,
+                    **kwargs
+                )
+                
+                q_clfs.append(clf)
+                
+                predicted = clf.predict(x_holdout)
+                
+                q_losses.append((quantile, self._quantile_loss(y_holdout, predicted, quantile)))
+                print(f"{group} μ={quantile:.3f}: {q_losses[-1][1]:.4f}")
+                
+                preds.append(predicted)
+                ys.append(y_holdout)
+                
+            clfs.append(q_clfs)
+            print(f"\nLevel {self.config.level} OOS Losses in {group}:")
+            print(np.round(pd.DataFrame(q_losses).set_index(0)[1], 4))
+            losses[group] = np.round(pd.DataFrame(q_losses).set_index(0)[1], 4).values
+            print(f"\nElapsed Time: {(dt.datetime.now() - start_time).seconds}s\n")
+            
+        clf_set.append(clfs)
+        print(f"\nLevel {self.config.level} Year-by-Year OOS Losses:")
+        print(losses)
+        
+        loss_set.append(losses)
+        print(f"\nModel Training Time: {(dt.datetime.now() - start_time).seconds}s\n")
             
         return clf_set, loss_set
     
@@ -1138,7 +1139,7 @@ class M5Forecaster:
         self.feature_generator = FeatureGenerator(train, levels, cal, daily_sales, self.config)
         series_features = self.feature_generator.generate_features()
         
-        # Train models
+        # Train models - a single model per quantile will be trained (no bagging)
         self.model_trainer = ModelTrainer(
             series_features,
             self.feature_generator.y_full,
@@ -1150,6 +1151,9 @@ class M5Forecaster:
             self.feature_generator.cal_index_to_day, 
             self.feature_generator.cal
         )
+        
+        # Override config bags to ensure a single model is trained
+        self.config.bags = 1
         
         clf_set = self.model_trainer.train_models()
         
