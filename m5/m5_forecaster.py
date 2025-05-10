@@ -707,7 +707,7 @@ class FeatureGenerator:
 class ModelTrainer:
     """Class for training M5 forecasting models"""
     
-    def __init__(self, series_features, y_full, cal_features, state_cal_features, config, series_id_level):
+    def __init__(self, series_features, y_full, cal_features, state_cal_features, config, series_id_level, cal_index_to_day, cal):
         """
         Initialize model trainer
         
@@ -724,6 +724,9 @@ class ModelTrainer:
         self.state_cal_features = state_cal_features
         self.config = config
         self.series_id_level = series_id_level
+        self.cal_index_to_day = cal_index_to_day
+        self.cal = cal
+        self.day_to_cal_index = dict([(col, idx) for idx, col in enumerate(cal.index)])  # Add this line
         self.quantile_wts = self._get_quantile_weights()
         self.clf_set = {}
         
@@ -937,6 +940,7 @@ class ModelTrainer:
         X['future_d'] = X.d + X.days_fwd
         X['state'] = X.state_id.astype('object')
         
+        # Use the state_cal_features DataFrame directly as in the original
         nX = X.merge(
             self.state_cal_features[['state', 'd', 'snap_day', 'nth_snap_day']]
             .rename(rename_scf, axis='columns'),
@@ -950,7 +954,7 @@ class ModelTrainer:
             on=['future_d', 'state'],
             validate='m:1', how='inner', suffixes=(False, False)
         )
-        
+            
         nX.drop(columns=['state', 'future_d'], inplace=True)
         
         assert len(nX) == len(X)
@@ -1139,9 +1143,12 @@ class M5Forecaster:
             series_features,
             self.feature_generator.y_full,
             self.feature_generator.cal_features,
-            self.feature_generator.state_cal_features,
+            self.feature_generator.state_cal_series_features,
             self.config,
-            self.feature_generator.series_id_level
+            self.feature_generator.series_id_level,
+            # Pass these additional mapping dictionaries
+            self.feature_generator.cal_index_to_day, 
+            self.feature_generator.cal
         )
         
         clf_set = self.model_trainer.train_models()
