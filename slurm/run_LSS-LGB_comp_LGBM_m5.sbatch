@@ -7,7 +7,7 @@
 #SBATCH --job-name=LSSboost_LGBM_M5
 #SBATCH --partition=skylake,skylake_mpi
 #SBATCH --mem-per-cpu=25G
-#SBATCH --array=1-100
+#SBATCH --array=10,56,57,58,63,69,71,72
 #SBATCH --mail-type=ALL
 
 

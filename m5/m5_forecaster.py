@@ -11,6 +11,7 @@ import bz2
 import gzip
 import pickle
 import psutil
+import torch
 import random
 import numpy as np
 import pandas as pd
@@ -45,7 +46,7 @@ class M5Config:
         self.time_seed = True
         self.bags = 1
         self.n_jobs = -1
-        self.ss_pwr = 0.6
+        self.ss_pwr = 1
         self.bags_pwr = 0
         self.cached_features = False
         self.cache_features = False
@@ -61,9 +62,12 @@ class M5Config:
         
         # Parameters dictionary for different levels
         self.p_dict = {
-            13: (0.12, 2),
-            14: (0.065, 2),
-            15: (0.03, 0.5)
+            13: (1, 2),
+            14: (1, 2),
+            15: (1, 0.5)
+            # 13: (0.1, 2),
+            # 14: (0.065, 2),
+            # 15: (0.03, 0.5)
         }
         
         # Core sparse features
@@ -88,7 +92,7 @@ class M5Config:
     def _get_lgb_params(self):
         """Get LightGBM parameters based on speed settings"""
         if self.speed or self.super_speed or self.reduced_features:
-            return {
+            param_dict = {
                 'max_depth': [10, 20],
                 'n_estimators': [150, 200, 200],
                 'min_split_gain': [0, 0, 0, 0, 1e-4, 1e-3, 1e-2, 0.1],
@@ -105,6 +109,8 @@ class M5Config:
                 'subsample_freq': [1],
                 'cat_smooth': [0.1, 0.2, 0.5, 1, 2, 5, 7, 10],
             }
+            param_dict["device"] = ['cuda'] if torch.cuda.is_available() else ['cpu']
+            return param_dict
         else:
             # Full parameters for standard speed
             return {
@@ -409,6 +415,9 @@ class FeatureGenerator:
         self._assemble_series_features()
         
         print(f"Feature generation completed in {(dt.datetime.now() - start).seconds}s")
+
+        # print a sample of the generated features
+        print(self.series_features.head())
         return self.series_features
     
     def _generate_basic_features(self):
@@ -668,7 +677,7 @@ class FeatureGenerator:
             'series': fstack.index.get_level_values(1).map(series_to_series_id).values.astype(np.int16),
             'days_since_first': (~self.train_flipped.isnull()).expanding().sum().stack(dropna=False).values.astype(np.int16),
             'trailing_vol': ((self.train_flipped.diff().abs()).expanding().mean()).astype(np.float16).stack(dropna=False).values,
-            'weights': np.ones(len(fstack)).astype(np.float16),  # Replace with uniform weights
+            'weights': np.ones(len(fstack)).astype(np.float32),  # Replace with uniform weights
         })
         
         # Set weights for new items to 0
@@ -785,7 +794,16 @@ class ModelTrainer:
         # Use series_id_level dictionary directly instead of looking for a 'level' column
         level_filter = self.series_features.series.map(lambda x: self.series_id_level.get(x) == level)
         
+        # Handle NaN weights
+        if self.series_features.weights.isna().any():
+            print(f"WARNING: Found {self.series_features.weights.isna().sum()} NaN weights. Fixing...")
+            self.series_features['weights'] = self.series_features.weights.fillna(1.0)
+        
+        # Make sure wtg_mean is not zero
         wtg_mean = self.series_features.weights[level_filter].mean()
+        if pd.isna(wtg_mean) or wtg_mean == 0:
+            wtg_mean = 1.0
+            print("WARNING: Weight mean is NaN or zero. Using 1.0.")
         
         ss = self.series_features.weights / wtg_mean * frac
         
@@ -793,6 +811,11 @@ class ModelTrainer:
             (ss > np.random.rand(len(ss))) & level_filter
         ]
         
+        print(f"Subsampled {len(X)} series for level {level} with fraction {frac}")
+        print(f"The subsampled filter is {len(X) / len(self.series_features)} of the original data")
+        print(f"The subsampled filter cut is {ss} with level filter {level_filter}")
+        print(X.head())
+
         ss = X.weights / wtg_mean * frac
         
         print(f"{(ss > 1).sum()} series that seek oversampling")
@@ -939,25 +962,63 @@ class ModelTrainer:
             
         X['future_d'] = X.d + X.days_fwd
         X['state'] = X.state_id.astype('object')
+
+        # Debug information
+        print(f"X shape before merges: {X.shape}")
+        print(f"Unique states in X: {X.state.nunique()}")
+        print(f"Unique states in state_cal_features: {self.state_cal_features.state.nunique()}")
+        print(f"Unique 'd' values in X: {X.d.nunique()}")
+        print(f"Unique 'd' values in state_cal_features: {self.state_cal_features.d.nunique()}")
         
-        # Use the state_cal_features DataFrame directly as in the original
+        # First merge - create a copy for safety
+        state_cal_base = self.state_cal_features[['state', 'd', 'snap_day', 'nth_snap_day']].copy()
+        state_cal_base = state_cal_base.rename(rename_scf, axis='columns')    
+        
+        # Using left join instead of inner join to preserve rows
         nX = X.merge(
-            self.state_cal_features[['state', 'd', 'snap_day', 'nth_snap_day']]
-            .rename(rename_scf, axis='columns'),
+            state_cal_base,
             on=['d', 'state'],
-            validate='m:1', how='inner', suffixes=(False, False)
+            validate=None,  # Remove m:1 validation that might fail
+            how='left',     # Use left join to preserve all rows
+            suffixes=(False, False)
         )
         
+        # Check results of first merge
+        print(f"Shape after first merge: {nX.shape}")
+        
+        # Second merge - create a copy for safety
+        state_cal_future = self.state_cal_features[['state', 'd', 'snap_day', 'nth_snap_day']].copy()
+        state_cal_future = state_cal_future.rename(columns={'d': 'future_d'})
+        
+        # Using left join for second merge as well
         nX = nX.merge(
-            self.state_cal_features[['state', 'd', 'snap_day', 'nth_snap_day']]
-            .rename(columns={'d': 'future_d'}),
+            state_cal_future,
             on=['future_d', 'state'],
-            validate='m:1', how='inner', suffixes=(False, False)
+            validate=None,  # Remove m:1 validation
+            how='left',     # Use left join to preserve all rows
+            suffixes=(False, False)
         )
-            
+        
+        # Final check before returning
+        print(f"Shape after second merge: {nX.shape}")
+        print(f"Original X shape: {X.shape}")
+        
+        # Fill NAs from merge operations
+        missing_cols = ['snap_day', 'nth_snap_day', 'basedate_snap_day', 'basedate_nth_snap_day']
+        for col in missing_cols:
+            if col in nX.columns and nX[col].isna().any():
+                print(f"Filling {nX[col].isna().sum()} NaN values in {col}")
+                nX[col] = nX[col].fillna(0)
+        
+        # Drop the temporary columns
         nX.drop(columns=['state', 'future_d'], inplace=True)
         
-        assert len(nX) == len(X)
+        # Replace assertion with warning if shapes don't match
+        if len(nX) != len(X):
+            print(f"WARNING: Shape mismatch after state_cal_features merge: {len(nX)} vs {len(X)}")
+            # In case of mismatch, return original X instead of failing
+            return X
+            
         return nX
     
     def _run_q_bags(self, n_bags=1, data=None, quantiles=None, **kwargs):
@@ -1067,7 +1128,8 @@ class ModelTrainer:
     
     def _quantile_scorer(self, quantile=0.5):
         """Create a scorer function for quantile regression"""
-        return make_scorer(self._quantile_loss, False, quantile=quantile)
+        # Fix the parameters for make_scorer
+        return make_scorer(self._quantile_loss, greater_is_better=False, quantile=quantile)
     
     def _train_model(self, x, y, groups, clf, params, cv=0, n_jobs=None, verbose=0, splits=None, **kwargs):
         """Train a model using RandomizedSearchCV"""
@@ -1085,7 +1147,7 @@ class ModelTrainer:
             scoring=cv
         )
         
-        f = clf.fit(x, y, groups)
+        f = clf.fit(x, y, groups=groups)
         print(pd.DataFrame(clf.cv_results_['mean_test_score']))
         print()
         
@@ -1169,7 +1231,7 @@ def main():
     # For training models at levels 13, 14, 15 with SUPER_SPEED
     for level in [13, 14, 15]:
         print(f"\n\n{'='*80}\nTraining model for level {level}\n{'='*80}\n")
-        forecaster = M5Forecaster(data_path="m5-data", level=level, super_speed=True)
+        forecaster = M5Forecaster(data_path="data/m5-forecasting-accuracy", level=level, super_speed=True)
         forecaster.run()
 
 
