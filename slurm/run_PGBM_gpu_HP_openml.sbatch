@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_PBGM_openml/slurm-%A_%a.out # STDOUT
-#SBATCH --job-name=PBGM_openml
+#SBATCH --output=./report/%A_PGBM_openml/slurm-%A_%a.out # STDOUT
+#SBATCH --job-name=PGBM_openml
 #SBATCH --time=3-00:00:00
 #SBATCH --ntasks-per-node=1
-#SBATCH --partition=pascal_gpu,ampere_gpu
+#SBATCH --partition=ampere_gpu
 #SBATCH --gpus-per-node=1
 #SBATCH --mem-per-cpu=60G
 #SBATCH --array=0-18
@@ -31,4 +31,4 @@ source $VSC_SCRATCH/gpu_friendly/bin/activate
 
 cd /scratch/brussel/105/vsc10528/LSSboost
 
-python openml/openml_pgbm_single_run.py $SLURM_ARRAY_TASK_ID
+python openml/openml_pgbm_NLL_HP_single_run.py $SLURM_ARRAY_TASK_ID

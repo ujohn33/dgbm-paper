@@ -30,6 +30,8 @@ np.random.seed(1)
 mode = 'exp'
 natural_flag = False
 n_forecasts = 200
+# Global model instance for reuse
+GLOBAL_MODEL = None
 
 # Hardcoded parameters for testing
 args = {
@@ -84,6 +86,25 @@ def rmseloss_metric(yhat, y, sample_weight=None):
     loss = (yhat - y).pow(2).mean().sqrt()
     return loss
 
+# Global warmup to pre-compile JIT functions
+def warmup_pgbm_jit():
+    """Pre-compile PGBM JIT functions globally"""
+    print("Warming up PGBM JIT compilation globally...")
+    dummy_X = np.random.randn(100, 5)
+    dummy_y = np.random.randn(100)
+    dummy_params = {
+        'n_estimators': 10,
+        'learning_rate': 0.1,
+        'max_leaves': 8,
+        'device': 'gpu',
+        'verbose': 0
+    }
+
+    global GLOBAL_MODEL
+    GLOBAL_MODEL = PGBM()
+    GLOBAL_MODEL.train((dummy_X, dummy_y), objective=objective, metric=rmseloss_metric, params=dummy_params)
+    print("Global JIT compilation complete.")
+
 def run_single_argument(task_id):
     task = openml.tasks.get_task(task_id)  # download the OpenML task
     dataset = task.get_dataset()
@@ -93,7 +114,7 @@ def run_single_argument(task_id):
     
     # Encode categorical columns
     X = encode_categorical_columns(X)
-    y = encode_categorical_series(y)
+    y = encode_categorical_series(y)  
 
     # Set bagging_fraction based on dataset size (as in the example code)
     if len(y) > 50000:
@@ -191,6 +212,8 @@ if __name__ == "__main__":
     print("______________________")
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     vsc_data = os.environ['VSC_DATA']
+    # Call this once at module level
+    warmup_pgbm_jit()
     results = run_single_argument(task_number)
     file_path = "results/openml/openml_PBGM_replication.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]

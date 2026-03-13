@@ -66,7 +66,7 @@ args = {
     #"quantile_clipping": quantile_clipping,
     #"clip_value": None,
     "SUITE_ID": 336, # Regression on numerical features
-    "n_est": 2000,
+    "n_est": 200,
     "n_trials": 80,
     "n_splits": 5,
     "score": "MLE",

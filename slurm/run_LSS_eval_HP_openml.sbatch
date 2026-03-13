@@ -1,17 +1,11 @@
 #!/bin/bash
 
 #SBATCH --output=./report/%A_LSSboost_openml/slurm-%A_%a.out # STDOUT
-
 #SBATCH --job-name=LSSboost_openml
-
 #SBATCH --time=1-12:00:00
-
 #SBATCH --ntasks-per-node=1
-
-#SBATCH --partition=skylake,skylake_mpi
-
+#SBATCH --partition=zen5_mpi
 #SBATCH --mem-per-cpu=60G
-
 #SBATCH --array=0-18
 #SBATCH --mail-type=ALL
 
@@ -38,7 +32,7 @@ cd /scratch/brussel/105/vsc10528/LSSboost
 # Fixed values
 dataset=$SLURM_ARRAY_TASK_ID
 mode="exp"
-natural_grad="False" #("True" "False")
+natural_grad="True" #("True" "False")
 stabilization="None"
 clip_value="None"
 standardize="False"
