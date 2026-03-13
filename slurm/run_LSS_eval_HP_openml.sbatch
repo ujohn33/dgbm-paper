@@ -32,12 +32,13 @@ cd /scratch/brussel/105/vsc10528/LSSboost
 # Fixed values
 dataset=$SLURM_ARRAY_TASK_ID
 mode="exp"
-natural_grad="True" #("True" "False")
+natural_grad="False" #("True" "False")
 stabilization="None"
 clip_value="None"
 standardize="False"
+run_seed="123"
 
 # Echo the parameters and dataset for logging
-echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value and standardize=$standardize"
+echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value, standardize=$standardize and run_seed=$run_seed"
 
-python openml/openml_lssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $clip_value $standardize
+python openml/openml_lssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $clip_value $standardize $run_seed

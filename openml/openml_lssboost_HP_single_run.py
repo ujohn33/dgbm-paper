@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import time
 import csv
+import random
 import torch
 import lightgbm as lgb
 from sklearn.metrics import mean_squared_error
@@ -20,19 +21,32 @@ from utils.logging import log_predictions
 from utils.safety import apply_safety_net
 
 
-np.random.seed(123)
+def seed_everything(seed: int):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
 # Set OpenML API key
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
 # Get command-line arguments
-print("Usage: python UCI_lssboost_single_run_HP.py <seed_id> <mode> <natural_grad> <stabilization> <standardize>")
+print("Usage: python UCI_lssboost_single_run_HP.py <task_idx> <mode> <natural_grad> <stabilization> <clip_value> <standardize> [run_seed]")
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
 stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
 clip_value = None if len(sys.argv) <= 5 or sys.argv[5] == 'None' else float(sys.argv[5])
 standardize = False if len(sys.argv) <= 6 else sys.argv[6].lower() == 'true'
+run_seed = 123 if len(sys.argv) <= 7 else int(sys.argv[7])
+
+seed_everything(run_seed)
     
 
 def detect_categorical_features(df, threshold_unique=20, threshold_ratio=0.05):
@@ -137,7 +151,7 @@ def run_single_argument(task_id):
 
     opt_param = lgblss.hyper_opt(param_dict, dtrain, num_boost_round=args["n_est"],
                                     nfold=args['n_splits'], early_stopping_rounds=args["n_est"], max_minutes=1440, n_trials=args['n_trials'],
-                                    silence=True, seed=123, hp_seed=123)
+                                    silence=True, seed=run_seed, hp_seed=run_seed)
 
     end_time = time.time()  # End time measurement
     elapsed_time_HP = end_time - start_time  # Calculate elapsed time
@@ -155,6 +169,14 @@ def run_single_argument(task_id):
     n_rounds = opt_param.get("opt_rounds", 100)  # Default to 100 if missing
     #n_rounds = opt_params["opt_rounds"]
     del opt_params["opt_rounds"]
+    opt_params.update({
+        "seed": run_seed,
+        "bagging_seed": run_seed,
+        "feature_fraction_seed": run_seed,
+        "data_random_seed": run_seed,
+        "deterministic": True,
+        "num_threads": 1,
+    })
 
     # Evaluate the optimized parameters on the remaining folds
     for fold in range(1, n_folds):
@@ -162,7 +184,13 @@ def run_single_argument(task_id):
         X_trainall, X_test = X.iloc[train_indices], X.iloc[test_indices]
         y_trainall, y_test = y.iloc[train_indices], y.iloc[test_indices]
 
-        X_train, X_val, y_train, y_val = train_test_split(X_trainall, y_trainall, test_size=0.2)
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_trainall,
+            y_trainall,
+            test_size=0.2,
+            random_state=run_seed + fold,
+            shuffle=True,
+        )
 
         dtrain = lgb.Dataset(X_train, y_train)
         deval = lgb.Dataset(X_val, y_val)
@@ -199,7 +227,8 @@ def run_single_argument(task_id):
         lss_rmse += [np.sqrt(mean_squared_error(forecast['loc'].values, y_test))]
         val_rmse = [np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))]
         lss_nll += [-norm(forecast['loc'], forecast['scale']).logpdf(y_test).mean()]
-        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]])
+        rng = np.random.default_rng(run_seed + task_id * 1000 + fold)
+        samples = np.array([[rng.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test, samples)
         lss_crps += [crps_comps[0]]
