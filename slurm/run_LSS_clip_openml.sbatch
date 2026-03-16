@@ -58,12 +58,14 @@ natural_grad=${natural_grad_values[$ng_index]}
 # Fixed values
 mode="exp"
 stabilization="None"
-clipping="False"
+clip_value="None"
+standardize="False"
+run_seed="123"
 
 # Echo the parameters and dataset for logging
-echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clipping"
+echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value, standardize=$standardize and run_seed=$run_seed"
 
-python openml/openml_lssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $clipping
+python openml/openml_lssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization  $clip_value $standardize $run_seed
 
 # stop monitoring GPU usage:
 killall nvidia-smi

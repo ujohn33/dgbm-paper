@@ -113,6 +113,10 @@ param_dict = {
 }
 
 param_dict["device"] = ["categorical", ['cuda']] if torch.cuda.is_available() else ["categorical", ['cpu']]
+if torch.cuda.is_available():
+    print("CUDA is available. Using GPU for training.")
+else:
+    print("CUDA is not available. Using CPU for training.")
 
 def run_single_argument(task_id):
     task = openml.tasks.get_task(task_id)  # download the OpenML task
