@@ -8,7 +8,6 @@ import time
 import csv
 import random
 import torch
-from datetime import datetime
 import lightgbm as lgb
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
@@ -38,7 +37,7 @@ def seed_everything(seed: int):
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
 # Get command-line arguments
-print("Usage: python UCI_lssboost_single_run_HP.py <task_idx> <mode> <natural_grad> <stabilization> <clip_value> <standardize> [run_seed]")
+print("Usage: python UCI_lssboost_single_run_HP.py <task_idx> <mode> <natural_grad> <stabilization> <clip_value> <standardize> [run_seed] [apply_safety] [scale_floor_rel]")
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
@@ -46,6 +45,7 @@ stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
 clip_value = None if len(sys.argv) <= 5 or sys.argv[5] == 'None' else float(sys.argv[5])
 standardize = False if len(sys.argv) <= 6 else sys.argv[6].lower() == 'true'
 run_seed = 123 if len(sys.argv) <= 7 else int(sys.argv[7])
+apply_safety = False if len(sys.argv) <= 8 else sys.argv[8].lower() == 'true'
 
 seed_everything(run_seed)
     
@@ -86,13 +86,14 @@ args = {
     "n_splits": 5,
     "score": "MLE",
     "distn": "Normal",
+    "apply_safety": apply_safety,
 }
 
 
 if natural_grad:
-    method_name = f'LSSboost_natural_{mode}_{stabilization}'
+    method_name = f'LSSboost_natural_{mode}_{stabilization}_std_{standardize}_safety_{apply_safety}_srel_{scale_floor_rel}'
 else:
-    method_name = f'LSSboost_no_natural_{mode}_{stabilization}'
+    method_name = f'LSSboost_no_natural_{mode}_{stabilization}_std_{standardize}_safety_{apply_safety}_srel_{scale_floor_rel}'
 
 
 # Obtain the benchmark suite from OpenML
@@ -145,12 +146,27 @@ def run_single_argument(task_id):
     X_train_opt, X_test_opt = X.iloc[train_indices], X.iloc[test_indices]
     y_train_opt, y_test_opt = y.iloc[train_indices], y.iloc[test_indices]
 
-    dtrain = lgb.Dataset(X_train_opt, y_train_opt)
+    if standardize:
+        y_opt_mean = float(np.mean(y_train_opt))
+        y_opt_std = float(np.std(y_train_opt))
+        y_opt_std = 1.0 if y_opt_std < 1e-12 else y_opt_std
+        y_train_opt_fit = (y_train_opt - y_opt_mean) / y_opt_std
+    else:
+        y_train_opt_fit = y_train_opt
+
+    dtrain = lgb.Dataset(X_train_opt, y_train_opt_fit)
     #dtrain = lgb.Dataset(X_train_opt, y_train_opt, categorical_feature=cat_features, free_raw_data=False)
 
     start_time = time.time()  # Start time measurement
 
-    lgblss = LightGBMLSS(Gaussian(stabilization=args['stabilization'], response_fn=args['mode'], loss_fn="nll", natural_gradient=args['natural_grad']))
+    lgblss = LightGBMLSS(
+        Gaussian(
+            stabilization=args['stabilization'],
+            response_fn=args['mode'],
+            loss_fn="nll",
+            natural_gradient=args['natural_grad'],
+        )
+    )
     #lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
     lgblss.start_values = np.array([np.mean(y_train_opt), np.std(y_train_opt)])
 
@@ -197,8 +213,20 @@ def run_single_argument(task_id):
             shuffle=True,
         )
 
-        dtrain = lgb.Dataset(X_train, y_train)
-        deval = lgb.Dataset(X_val, y_val)
+        if standardize:
+            y_mean = float(np.mean(y_trainall))
+            y_std = float(np.std(y_trainall))
+            y_std = 1.0 if y_std < 1e-12 else y_std
+            y_train_fit = (y_train - y_mean) / y_std
+            y_val_fit = (y_val - y_mean) / y_std
+            y_trainall_fit = (y_trainall - y_mean) / y_std
+        else:
+            y_train_fit = y_train
+            y_val_fit = y_val
+            y_trainall_fit = y_trainall
+
+        dtrain = lgb.Dataset(X_train, y_train_fit)
+        deval = lgb.Dataset(X_val, y_val_fit)
         dtest = lgb.Dataset(X_test, y_test)
 
         # dtrain = lgb.Dataset(X_train, y_train, categorical_feature=cat_features, free_raw_data=False)
@@ -211,7 +239,7 @@ def run_single_argument(task_id):
                             valid_sets=[dtrain, deval],
                             )
 
-        full_train_data = lgb.Dataset(X_trainall, y_trainall)
+        full_train_data = lgb.Dataset(X_trainall, y_trainall_fit)
         opt_params['early_stopping'] = None
 
         runtime_start = time.time()
@@ -221,13 +249,20 @@ def run_single_argument(task_id):
                         )
 
         forecast = lgblss.predict(X_test)
-
-        # Apply the safety net to the predictions
-        #forecast = apply_safety_net(forecast, y_trainall.values)
         
         runtime_pred = time.time() - runtime_start
 
         forecast_val = lgblss.predict(X_val)
+
+        if standardize:
+            forecast["loc"] = forecast["loc"] * y_std + y_mean
+            forecast["scale"] = forecast["scale"] * y_std
+            forecast_val["loc"] = forecast_val["loc"] * y_std + y_mean
+            forecast_val["scale"] = forecast_val["scale"] * y_std
+
+        if args["apply_safety"]:
+            forecast = apply_safety_net(forecast, y_trainall.values)
+            forecast_val = apply_safety_net(forecast_val, y_trainall.values)
 
         lss_rmse += [np.sqrt(mean_squared_error(forecast['loc'].values, y_test))]
         val_rmse = [np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))]
@@ -304,9 +339,8 @@ if __name__ == "__main__":
     print("______________________")
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     results = run_single_argument(task_number)
-    run_number = sys.argv[1]
-    run_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_path = f"results/openml/openml_{method_name}_run_{run_number}_{run_datetime}.csv"
+    batch_job_id = os.environ.get("SLURM_ARRAY_JOB_ID") or os.environ.get("SLURM_JOB_ID") or "11697976"
+    file_path = f"results/openml/openml_{method_name}_job_{batch_job_id}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

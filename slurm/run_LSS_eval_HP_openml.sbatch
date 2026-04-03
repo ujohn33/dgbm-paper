@@ -37,8 +37,9 @@ stabilization="None"
 clip_value="None"
 standardize="False"
 run_seed="123"
+safety="False"
 
 # Echo the parameters and dataset for logging
-echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value, standardize=$standardize and run_seed=$run_seed"
+echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value, standardize=$standardize, run_seed=$run_seed, safety=$safety"
 
-python openml/openml_lssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $clip_value $standardize $run_seed
+python openml/openml_lssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $clip_value $standardize $run_seed $safety

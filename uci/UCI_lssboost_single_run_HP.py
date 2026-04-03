@@ -5,7 +5,6 @@ import csv
 import numpy as np
 import pandas as pd
 import time
-from datetime import datetime
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from lightgbmlss.model import *
@@ -17,7 +16,7 @@ from utils.metrics import crps, quantile_loss
 from utils.logging import log_predictions
 from utils.safety import apply_safety_net 
 
-print("Usage: python UCI_lssboost_single_run_HP.py <seed_id> <mode> <natural_grad> <stabilization> <standardize>")
+print("Usage: python UCI_lssboost_single_run_HP.py <seed_id> <mode> <natural_grad> <stabilization> <clip_value> <standardize> [apply_safety] [scale_floor_rel]")
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
@@ -25,11 +24,12 @@ stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
 clip_value = None if len(sys.argv) <= 5 or sys.argv[5] == 'None' else float(sys.argv[5])
 # If standardize not provided, default to False
 standardize = False if len(sys.argv) <= 6 else sys.argv[6].lower() == 'true'
+apply_safety = False if len(sys.argv) <= 7 else sys.argv[7].lower() == 'true'
     
 if natural_grad:
-    method_name = f'LSSboost_natural_{mode}_{stabilization}_std_{standardize}'
+    method_name = f'LSSboost_natural_{mode}_{stabilization}_std_{standardize}_safety_{apply_safety}_srel_{scale_floor_rel}'
 else:
-    method_name = f'LSSboost_no_natural_{mode}_{stabilization}_std_{standardize}'
+    method_name = f'LSSboost_no_natural_{mode}_{stabilization}_std_{standardize}_safety_{apply_safety}_srel_{scale_floor_rel}'
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
@@ -76,6 +76,7 @@ args = {
     "score": "MLE",
     "distn": "Normal",
     "standardize": standardize,
+    "apply_safety": apply_safety,
     "random_state": 1,
 }
 
@@ -282,6 +283,9 @@ def run_single_arguement(run_seed):
         print(f"Pedictions after rescaling - min: {forecast['loc'].min()}, max: {forecast['loc'].max()}, mean: {forecast['loc'].mean()}")
 
         forecast_val = lgblss.predict(X_val)
+        if args["apply_safety"]:
+            forecast = apply_safety_net(forecast, y_trainall.values)
+            forecast_val = apply_safety_net(forecast_val, y_trainall.values)
         
         # Time the duration for forecast deployment
         end_time = time.time()  # End time measurement
@@ -360,9 +364,8 @@ if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
     method_name = f"{method_name}_n_est_{args['n_est']}"  # Assuming args['n_estimators'] exists
-    run_number = sys.argv[1]
-    run_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_path = f"results/uci/uci_{method_name}_run_{run_number}_{run_datetime}.csv"
+    batch_job_id = os.environ.get("SLURM_ARRAY_JOB_ID") or os.environ.get("SLURM_JOB_ID") or "11697976"
+    file_path = f"results/uci/uci_{method_name}_job_{batch_job_id}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)
