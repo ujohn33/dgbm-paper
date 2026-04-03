@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import csv
+import random
 import numpy as np
 import pandas as pd
 import time
@@ -21,14 +22,26 @@ from utils.metrics import crps, quantile_loss
 from utils.logging import log_predictions
 from utils.mem_usage import reduce_mem_usage
 
-np.random.seed(123)
+def seed_everything(seed: int):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
 # Set OpenML API key
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
 # Define constants and parameters
 SUITE_ID = 336 # Regression on numerical features
-np.random.seed(1)
+print("Usage: python openml_gpboost_HP_single_run.py <task_idx> [run_seed]")
+run_seed = 123 if len(sys.argv) <= 2 else int(sys.argv[2])
+seed_everything(run_seed)
 n_forecasts = 100
 NUM_ROUNDS = 40
 
@@ -39,7 +52,7 @@ args = {
     "distn": "Normal",
     "verbose": True,
     "verbose_eval":1,
-    "random_state":1
+    "random_state": run_seed
 }
 
 method_name = 'GPboost'
@@ -61,11 +74,12 @@ def encode_categorical_columns(df):
 
 # Define the Optuna objective class for hyperparameter tuning
 class Objective(object):
-    def __init__(self, X_train, y_train, coords_train, approx):
+    def __init__(self, X_train, y_train, coords_train, approx, seed):
         self.X_train = X_train
         self.y_train = y_train
         self.coords_train = coords_train
         self.approx = approx
+        self.seed = seed
         
     def __call__(self, trial):
         params = {
@@ -73,6 +87,10 @@ class Objective(object):
             'max_depth': trial.suggest_categorical('max_depth', [-1]),  # Only -1 here, but can add more if desired            'num_leaves': trial.suggest_categorical('num_leaves', [2**i for i in range(1, 10)]),
             'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 10, 100),
             'lambda_l2': trial.suggest_float('lambda_l2', 1e-3, 1),
+            'seed': self.seed,
+            'bagging_seed': self.seed,
+            'feature_fraction_seed': self.seed,
+            'data_random_seed': self.seed,
             'verbose': -1
             }
         delta_conv = trial.suggest_float('delta_rel_conv', 1e-4, 0.1)
@@ -138,8 +156,11 @@ def run_single_argument(task_id):
     # Hyperparameter optimization with Optuna
     start_time = time.time()
     print('Hyperparameter tuning...')
-    study = optuna.create_study(direction='maximize')
-    objective_tuning = Objective(X_train_opt, y_train_opt, coords_train_opt_scaled, approx_status)
+    study = optuna.create_study(
+        direction='maximize',
+        sampler=optuna.samplers.TPESampler(seed=run_seed),
+    )
+    objective_tuning = Objective(X_train_opt, y_train_opt, coords_train_opt_scaled, approx_status, run_seed)
     study.optimize(objective_tuning, n_trials=20, timeout=86400)
     end_time = time.time()  # End time measurement
     elapsed_time_HP = end_time - start_time  # Calculate elapsed time
@@ -156,7 +177,14 @@ def run_single_argument(task_id):
         y_train, y_test = y.iloc[train_indices], y.iloc[test_indices]
 
         indices = np.arange(len(y_train))
-        X_train_val, X_val, y_train_val, y_val, train_val_ind, val_ind = train_test_split(X_train, y_train, indices, test_size=0.2)
+        X_train_val, X_val, y_train_val, y_val, train_val_ind, val_ind = train_test_split(
+            X_train,
+            y_train,
+            indices,
+            test_size=0.2,
+            random_state=run_seed + fold,
+            shuffle=True,
+        )
         # Standardize the input features (S) for Gaussian Process only on training data
         coords_train = scaler.transform(X_train_val)
         coords_val = scaler.transform(X_val)
@@ -168,10 +196,18 @@ def run_single_argument(task_id):
 
         # Train the final model on the full training set (including validation)
         print('Training validation model...')
+        fold_params = best_params.copy()
+        fold_params.update({
+            "seed": run_seed,
+            "bagging_seed": run_seed,
+            "feature_fraction_seed": run_seed,
+            "data_random_seed": run_seed,
+        })
+
         if approx_status:
             gp_model = gpb.GPModel(gp_coords=coords_train, likelihood="gaussian", gp_approx = "vecchia")
             gp_model.set_optim_params(params={"optimizer_cov": "nelder_mead"})
-            gp_model.set_optim_params(params={"delta_rel_conv": best_params['delta_rel_conv']})
+            gp_model.set_optim_params(params={"delta_rel_conv": fold_params['delta_rel_conv']})
         else:
             gp_model = gpb.GPModel(gp_coords=coords_train, likelihood="gaussian")
         eval_ind = val_ind
@@ -179,12 +215,12 @@ def run_single_argument(task_id):
         gp_model.set_prediction_data(gp_coords_pred=coords_val)
         evals_result = {}  # record eval results for plotting
         if approx_status:
-            st = gpb.train(params=best_params, train_set=train_val_data, num_boost_round=NUM_ROUNDS,
+            st = gpb.train(params=fold_params, train_set=train_val_data, num_boost_round=NUM_ROUNDS,
                     gp_model=gp_model, valid_sets=valid_data, 
                     early_stopping_rounds=20, use_gp_model_for_validation=True,
                     evals_result=evals_result, train_gp_model_cov_pars=False)
         else:
-            st = gpb.train(params=best_params, train_set=train_val_data, num_boost_round=NUM_ROUNDS,
+            st = gpb.train(params=fold_params, train_set=train_val_data, num_boost_round=NUM_ROUNDS,
                     gp_model=gp_model, valid_sets=valid_data, 
                     early_stopping_rounds=20, use_gp_model_for_validation=True,
                     evals_result=evals_result)
@@ -198,7 +234,7 @@ def run_single_argument(task_id):
 
         print('Training final model...')
         start_time = time.time()
-        st_final = gpb.train(params=best_params, train_set=train_val_data, num_boost_round=best_iter,
+        st_final = gpb.train(params=fold_params, train_set=train_val_data, num_boost_round=best_iter,
         gp_model=gp_model, use_gp_model_for_validation=False)
         training_time = time.time() - start_time
         print(f'Training time for fold {fold + 1}: {training_time:.2f} seconds')
@@ -215,7 +251,8 @@ def run_single_argument(task_id):
         rmse = np.sqrt(mean_squared_error(mu, y_test))
         nll_test = -norm(mu, std).logpdf(y_test).mean()
 
-        samples = np.array([[np.random.normal(loc=loc, scale=np.std(scale), size=100) for loc, scale in zip(mu, std)]])
+        rng = np.random.default_rng(run_seed + task_id * 1000 + fold)
+        samples = np.array([[rng.normal(loc=loc, scale=np.std(scale), size=100) for loc, scale in zip(mu, std)]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test, samples)
         crps_test = crps_comps[0]

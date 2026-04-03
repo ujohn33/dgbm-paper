@@ -5,6 +5,7 @@ import csv
 import numpy as np
 import pandas as pd
 import time
+from datetime import datetime
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from lightgbmlss.model import *
@@ -359,10 +360,9 @@ if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
     results = run_single_arguement(sys.argv[1])
     method_name = f"{method_name}_n_est_{args['n_est']}"  # Assuming args['n_estimators'] exists
-    if args['natural_grad']:
-        file_path = f"results/uci/uci_{method_name}.csv"
-    else:
-        file_path = f"results/uci/uci_{method_name}.csv"
+    run_number = sys.argv[1]
+    run_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_path = f"results/uci/uci_{method_name}_run_{run_number}_{run_datetime}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

@@ -2,6 +2,7 @@ import os
 import sys
 import openml
 import json
+import random
 import numpy as np
 import pandas as pd
 import time
@@ -19,13 +20,28 @@ import optuna
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
 
-np.random.seed(123)
+def seed_everything(seed: int):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    try:
+        import torch
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.use_deterministic_algorithms(True, warn_only=True)
+    except ImportError:
+        pass
 
 # Set OpenML API key
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
-# Random seed
-np.random.seed(1)
+print("Usage: python openml_ngboost_HP_single_run.py <task_idx> [run_seed]")
+run_seed = 123 if len(sys.argv) <= 2 else int(sys.argv[2])
+seed_everything(run_seed)
 
 # Define constants and parameters
 args = {
@@ -35,7 +51,7 @@ args = {
     "SUITE_ID": 336,  # Regression on numerical features 
     "natural_grad": True,
     "verbose": True,
-    "random_state": 1
+    "random_state": run_seed
 }
 
 b1 = DecisionTreeRegressor(criterion='squared_error', max_depth=2)
@@ -51,7 +67,7 @@ def encode_categorical_columns(df):
         df[col] = df[col].cat.codes
     return df
 
-def objective(trial, X, y):
+def objective(trial, X, y, seed):
     # Suggest hyperparameters
     lr = trial.suggest_float("lr", 1e-4, 1e-1)
     n_estimators = trial.suggest_int("n_estimators", 200, 2000)
@@ -66,17 +82,24 @@ def objective(trial, X, y):
         learning_rate=lr,
         natural_gradient=args["natural_grad"],
         minibatch_frac=minibatch_frac,
+        random_state=seed,
         verbose=args["verbose"],
     )
 
-    kf = KFold(n_splits=args["n_splits"], shuffle=True, random_state=args["random_state"])
+    kf = KFold(n_splits=args["n_splits"], shuffle=True, random_state=seed)
     ngb_nll = []
 
-    for train_index, test_index in kf.split(X):
+    for fold_idx, (train_index, test_index) in enumerate(kf.split(X), start=1):
         X_trainall, X_test = X[train_index], X[test_index]
         y_trainall, y_test = y[train_index], y[test_index]
 
-        X_train, X_val, y_train, y_val = train_test_split(X_trainall, y_trainall, test_size=0.2)
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_trainall,
+            y_trainall,
+            test_size=0.2,
+            random_state=seed + fold_idx,
+            shuffle=True,
+        )
 
         ngb.fit(X_train, y_train)
         y_preds = ngb.staged_predict(X_val)
@@ -94,6 +117,7 @@ def objective(trial, X, y):
             learning_rate=lr,
             natural_gradient=args["natural_grad"],
             minibatch_frac=minibatch_frac,
+            random_state=seed + fold_idx,
             verbose=args["verbose"],
         )
         ngb.fit(X_trainall, y_trainall)
@@ -131,8 +155,12 @@ def run_single_argument(task_id):
     y_train_opt, y_test_opt = y[train_indices], y[test_indices]
 
     start_time_HP = time.time()
-    study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner())
-    study.optimize(lambda trial: objective(trial, X_train_opt, y_train_opt), n_trials=10, timeout=86400)
+    study = optuna.create_study(
+        direction="minimize",
+        pruner=optuna.pruners.MedianPruner(),
+        sampler=optuna.samplers.TPESampler(seed=run_seed),
+    )
+    study.optimize(lambda trial: objective(trial, X_train_opt, y_train_opt, run_seed), n_trials=10, timeout=86400)
     elapsed_time_HP = time.time() - start_time_HP
 
     print("Best hyperparameters: ", study.best_params)
@@ -152,7 +180,13 @@ def run_single_argument(task_id):
         X_trainall, X_test = X[train_indices], X[test_indices]
         y_trainall, y_test = y[train_indices], y[test_indices]
 
-        X_train, X_val, y_train, y_val = train_test_split(X_trainall, y_trainall, test_size=0.2)
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_trainall,
+            y_trainall,
+            test_size=0.2,
+            random_state=run_seed + fold,
+            shuffle=True,
+        )
         
         ngb = NGBRegressor(
             Base=base_learner_choices[opt_params["Base"]],
@@ -162,6 +196,7 @@ def run_single_argument(task_id):
             learning_rate=opt_params["lr"],
             natural_gradient=args["natural_grad"],
             minibatch_frac=opt_params["minibatch_frac"],
+            random_state=run_seed + fold,
             verbose=args["verbose"],
         )
         
@@ -186,6 +221,7 @@ def run_single_argument(task_id):
             learning_rate=opt_params["lr"],
             natural_gradient=args["natural_grad"],
             minibatch_frac=opt_params["minibatch_frac"],
+            random_state=run_seed + fold,
             verbose=args["verbose"],
         )
 
@@ -207,7 +243,8 @@ def run_single_argument(task_id):
 
         lss_rmse += [np.sqrt(mean_squared_error(forecast.mean(), y_test))]
         lss_nll += [-forecast.logpdf(y_test.flatten()).mean()]
-        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast.loc, forecast.scale)]])
+        rng = np.random.default_rng(run_seed + task_id * 1000 + fold)
+        samples = np.array([[rng.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast.loc, forecast.scale)]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test.flatten(), samples)
         lss_crps += [crps_comps[0]]
@@ -297,4 +334,3 @@ if __name__ == "__main__":
                         results[18], results[19], results[20]]
 
         writer.writerow(row_to_write)
-

@@ -2,6 +2,7 @@ import openml
 import os
 import sys
 import json
+import random
 import numpy as np
 import pandas as pd
 import time
@@ -19,21 +20,31 @@ from utils.logging import log_predictions
 from utils.safety import apply_safety_net
 
 
-np.random.seed(123)
+def seed_everything(seed: int):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
 # Set OpenML API key
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 
-np.random.seed(1)
-
 # Get command-line arguments
-print("Usage: python UCI_lssboost_single_run_HP.py <seed_id> <mode> <natural_grad> <stabilization> <standardize>")
+print("Usage: python openml_xglssboost_HP_single_run.py <task_idx> <mode> <natural_grad> <stabilization> <clip_value> <standardize> [run_seed]")
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
 stabilization = sys.argv[4]  # e.g., 'L2', 'MAD', or 'None'
 clip_value = None if len(sys.argv) <= 5 or sys.argv[5] == 'None' else float(sys.argv[5])
 standardize = False if len(sys.argv) <= 6 else sys.argv[6].lower() == 'true'
+run_seed = 123 if len(sys.argv) <= 7 else int(sys.argv[7])
+seed_everything(run_seed)
     
 
 if natural_grad:
@@ -106,10 +117,9 @@ def run_single_argument(task_id):
                                  natural_gradient=args["natural_grad"]))
     xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
-    np.random.seed(123)
     opt_param = xgblss.hyper_opt(param_dict, dtrain, num_boost_round=args["n_est"],
                                     nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=80,
-                                    silence=True, seed=1, hp_seed=1)
+                                    silence=True, seed=run_seed, hp_seed=run_seed)
 
     end_time = time.time()  # End time measurement
     elapsed_time_HP = end_time - start_time  # Calculate elapsed time
@@ -125,6 +135,10 @@ def run_single_argument(task_id):
     
     n_rounds = opt_params["opt_rounds"]
     del opt_params["opt_rounds"]
+    opt_params.update({
+        "seed": run_seed,
+        "random_state": run_seed,
+    })
 
     # Evaluate the optimized parameters on the remaining folds
     for fold in range(1, n_folds):
@@ -132,7 +146,13 @@ def run_single_argument(task_id):
         X_trainall, X_test = X.iloc[train_indices], X.iloc[test_indices]
         y_trainall, y_test = y.iloc[train_indices], y.iloc[test_indices]
 
-        X_train, X_val, y_train, y_val = train_test_split(X_trainall, y_trainall, test_size=0.2)
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_trainall,
+            y_trainall,
+            test_size=0.2,
+            random_state=run_seed + fold,
+            shuffle=True,
+        )
 
         dtrain = xgb.DMatrix(X_train, label=y_train)
         deval = xgb.DMatrix(X_val, label=y_val)
@@ -167,7 +187,8 @@ def run_single_argument(task_id):
         lss_rmse += [np.sqrt(mean_squared_error(forecast['loc'], y_test))]
         val_rmse = [np.sqrt(mean_squared_error(forecast_val['loc'], y_val))]
         lss_nll += [-norm(forecast['loc'], forecast['scale']).logpdf(y_test).mean()]
-        samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]])
+        rng = np.random.default_rng(run_seed + task_id * 1000 + fold)
+        samples = np.array([[rng.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test, samples)
         lss_crps += [crps_comps[0]]
@@ -260,4 +281,3 @@ if __name__ == "__main__":
                         results[18], results[19], results[20]]
 
         writer.writerow(row_to_write)
-

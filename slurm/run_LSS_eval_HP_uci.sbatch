@@ -5,7 +5,6 @@
 #SBATCH --time=1-12:00:00
 #SBATCH --ntasks-per-node=1
 #SBATCH --job-name=LSSboost_uci
-#SBATCH --partition=skylake,skylake_mpi
 #SBATCH --mem-per-cpu=60G
 #SBATCH --array=0-9
 #SBATCH --mail-type=ALL

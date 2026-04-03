@@ -3,6 +3,7 @@ import torch
 import os
 import sys
 import json
+import random
 import numpy as np
 import pandas as pd
 import time
@@ -19,7 +20,17 @@ from scipy.stats import norm
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
 
-np.random.seed(123)
+def seed_everything(seed: int):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
 # Set OpenML API key
 openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
@@ -27,10 +38,13 @@ openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
 # Define constants and parameters
 SUITE_ID = 336 # Regression on numerical features
 method_name = 'pgbm'
-np.random.seed(1)
+print("Usage: python openml_pgbm_HP_single_run.py <task_idx> [run_seed]")
+run_seed = 123 if len(sys.argv) <= 2 else int(sys.argv[2])
+seed_everything(run_seed)
 mode = 'exp'
 natural_flag = False
 n_forecasts = 200
+device_name = "gpu" if torch.cuda.is_available() else "cpu"
 # Global model instance for reuse
 GLOBAL_MODEL = None
 
@@ -76,7 +90,7 @@ def warmup_pgbm_jit():
         'n_estimators': 10,
         'learning_rate': 0.1,
         'max_leaves': 8,
-        'device': 'gpu',
+        'device': device_name,
         'verbose': 0,
     }
     warmup_model = PGBM()
@@ -105,7 +119,7 @@ class Objective(object):
             'max_leaves': trial.suggest_int('max_leaves', 8, 32),
             'max_bin': trial.suggest_int('max_bin', 32, 256),
             'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 1, 20),  # Constant for this example
-            'device': 'gpu',
+            'device': device_name,
             'verbose': 2,
             'feature_fraction':  1,
             'derivatives': 'exact',
@@ -156,7 +170,10 @@ def run_single_argument(task_id):
     # Hyperparameter optimization with Optuna
     start_time = time.time()
     print('Hyperparameter tuning...')
-    study = optuna.create_study(direction='maximize')
+    study = optuna.create_study(
+        direction='maximize',
+        sampler=optuna.samplers.TPESampler(seed=run_seed),
+    )
     objective_tuning = Objective(X_train_opt, y_train_opt, dataset.name, bagging_fraction)
     study.optimize(objective_tuning, n_trials=20, timeout=86400)
     end_time = time.time()  # End time measurement
@@ -169,7 +186,7 @@ def run_single_argument(task_id):
     base_train_params = {
         'n_estimators': 2000,
         'bagging_fraction': bagging_fraction,
-        'device': 'gpu',
+        'device': device_name,
         'verbose': 2,
         'feature_fraction': 1,
         'derivatives': 'exact',
@@ -182,7 +199,13 @@ def run_single_argument(task_id):
         X_trainall, X_test = X.iloc[train_indices], X.iloc[test_indices]
         y_trainall, y_test = y.iloc[train_indices], y.iloc[test_indices]
 
-        X_train, X_val, y_train, y_val = train_test_split(X_trainall, y_trainall, test_size=0.2)
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_trainall,
+            y_trainall,
+            test_size=0.2,
+            random_state=run_seed + fold,
+            shuffle=True,
+        )
 
         train_data = (X_trainall.values, y_trainall.values)
         train_val_data = (X_train.values, y_train.values)
@@ -208,7 +231,8 @@ def run_single_argument(task_id):
             valid_set=(X_val.values, y_val.values),
             params=fold_params,
         )
-        torch.cuda.synchronize()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
 
         final_params = fold_params.copy()
         final_params['n_estimators'] = val_model.best_iteration
@@ -222,7 +246,8 @@ def run_single_argument(task_id):
             metric=rmseloss_metric,
             params=final_params,
         )
-        torch.cuda.synchronize()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
         training_time = time.time() - start_time
 
         print('Prediction...')

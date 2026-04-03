@@ -57,7 +57,7 @@ natural_grad=${natural_grad_values[$ng_index]}
 
 # Fixed values
 mode="exp"
-stabilization="None"
+stabilization="MAD"
 clip_value="None"
 standardize="False"
 run_seed="123"

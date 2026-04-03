@@ -8,6 +8,7 @@ import time
 import csv
 import random
 import torch
+from datetime import datetime
 import lightgbm as lgb
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
@@ -253,7 +254,7 @@ def run_single_argument(task_id):
         
         #print(y_test)
         # Log predictions for each fold
-        log_predictions(fold, dataset.name, y_test.values, forecast['loc'], forecast['scale'], quantile_preds, f"logs/openml/predictions/{method_name}.csv")
+        #log_predictions(fold, dataset.name, y_test.values, forecast['loc'], forecast['scale'], quantile_preds, f"logs/openml/predictions/{method_name}.csv")
 
         # Compute the average of the quantile losses (WQL as an average)
         wql_avg_fold = np.mean(quantile_losses)
@@ -303,10 +304,9 @@ if __name__ == "__main__":
     print("______________________")
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
     results = run_single_argument(task_number)
-    if args['natural_grad']:
-        file_path = f"results/openml/openml_{method_name}.csv"
-    else:
-        file_path = f"results/openml/openml_{method_name}.csv"
+    run_number = sys.argv[1]
+    run_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_path = f"results/openml/openml_{method_name}_run_{run_number}_{run_datetime}.csv"
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

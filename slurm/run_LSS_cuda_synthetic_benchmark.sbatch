@@ -39,7 +39,7 @@ nvidia-smi > logs/synthetic/gpu_lgblss_synth_info_${SLURM_JOB_ID}.txt
 # start monitoring GPU usage:
 nvidia-smi pmon -o DT -s um > logs/synthetic/gpu_lgblss_synth_usage_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.txt &
 
-data_sizes=(10000 25000 50000 100000 250000 500000 1000000 2500000 5000000 10000000)
+data_sizes=(10000 25000 50000 100000 250000 500000 1000000 2500000 5000000 10000000 25000000 50000000)
 repeat_ids=(0 1 2)
 
 num_sizes=${#data_sizes[@]}
