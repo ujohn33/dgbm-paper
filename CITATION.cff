@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the paper below."
+title: "DGBM: Distributional Gradient Boosting Machines"
+type: software
+license: Apache-2.0
+repository-code: "https://github.com/ujohn33/LSSboost_test"
+authors:
+  - family-names: "März"
+    given-names: "Alexander"
+    affiliation: "Independent Researcher"
+  - family-names: "Genov"
+    given-names: "Evgenii"
+    affiliation: "Vrije Universiteit Brussel"
+  - family-names: "Kneib"
+    given-names: "Thomas"
+    affiliation: "University of Göttingen"
+  - family-names: "Bergmeir"
+    given-names: "Christoph"
+    affiliation: "University of Granada / Monash University"
+keywords:
+  - distributional regression
+  - gradient boosting
+  - probabilistic forecasting
+  - GAMLSS
+  - uncertainty quantification
+preferred-citation:
+  type: article
+  title: "Distributional Gradient Boosting Machines"
+  authors:
+    - family-names: "März"
+      given-names: "Alexander"
+    - family-names: "Genov"
+      given-names: "Evgenii"
+    - family-names: "Kneib"
+      given-names: "Thomas"
+    - family-names: "Bergmeir"
+      given-names: "Christoph"

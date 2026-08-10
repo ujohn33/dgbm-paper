@@ -1,0 +1,23 @@
+{
+  "title": "DGBM: Distributional Gradient Boosting Machines",
+  "description": "<p>Source code, experiment scripts and result artifacts for the paper <em>Distributional Gradient Boosting Machines</em>.</p><p>DGBM formulates distributional regression as multi-parameter Newton boosting with observed-information Hessians obtained by automatic differentiation, implemented on top of the LightGBM and XGBoost histogram backends (DGBM-LGB and DGBM-XGB).</p><p>This archive contains the experiment entry points for the OpenML (suite 336) and UCI benchmarks, the Slurm job scripts used to launch them, the split-generation and evaluation code, the per-dataset result CSVs and tuning outputs behind every table in the paper, and a <code>reproduce/</code> package with pinned environments, an environment-capture script, a per-job hardware record and generators for the paper's tables.</p>",
+  "upload_type": "software",
+  "license": "Apache-2.0",
+  "access_right": "open",
+  "creators": [
+    { "name": "März, Alexander", "affiliation": "Independent Researcher" },
+    { "name": "Genov, Evgenii", "affiliation": "Vrije Universiteit Brussel, Brussels, Belgium" },
+    { "name": "Kneib, Thomas", "affiliation": "University of Göttingen, Göttingen, Germany" },
+    { "name": "Bergmeir, Christoph", "affiliation": "University of Granada, Spain; Monash University, Melbourne, Australia" }
+  ],
+  "keywords": [
+    "distributional regression",
+    "gradient boosting",
+    "probabilistic forecasting",
+    "GAMLSS",
+    "uncertainty quantification",
+    "automatic differentiation",
+    "LightGBM",
+    "XGBoost"
+  ]
+}
