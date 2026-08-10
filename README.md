@@ -1,5 +1,7 @@
 # DGBM — Distributional Gradient Boosting Machines
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21875432.svg)](https://doi.org/10.5281/zenodo.21875432)
+
 Code, experiment scripts and result artifacts for the paper **Distributional
 Gradient Boosting Machines** by Alexander März, Evgenii Genov, Thomas Kneib and
 Christoph Bergmeir.
@@ -60,8 +62,9 @@ archive attached to the release.
 
 ## Citation
 
-See [`CITATION.cff`](CITATION.cff). Please cite the paper; the archived
-snapshot has its own DOI.
+See [`CITATION.cff`](CITATION.cff). Please cite the paper. The archived
+snapshot is at [10.5281/zenodo.21875432](https://doi.org/10.5281/zenodo.21875432)
+— that is the concept DOI, which always resolves to the latest version.
 
 ## License
 

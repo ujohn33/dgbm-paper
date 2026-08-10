@@ -4,6 +4,7 @@ title: "DGBM: Distributional Gradient Boosting Machines"
 type: software
 license: Apache-2.0
 repository-code: "https://github.com/ujohn33/dgbm-paper"
+doi: "10.5281/zenodo.21875432"
 authors:
   - family-names: "März"
     given-names: "Alexander"
