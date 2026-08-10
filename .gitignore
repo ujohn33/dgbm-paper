@@ -27,3 +27,7 @@ logs/openml/xgboost/*
 
 # Cached UCI downloads: fetched and checksum-verified by reproduce/fetch_uci_data.sh
 reproduce/uci_cache/
+
+# Built release archives (attached to GitHub releases, not tracked)
+reproduce/dgbm-paper-*.tar.gz
+reproduction/results/
