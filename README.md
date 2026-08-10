@@ -26,7 +26,15 @@ pip install -r reproduce/requirements-distiboost_311.txt
 bash reproduce/fetch_uci_data.sh          # UCI data + checksum verification
 ```
 
-Reproduce one result:
+Reproduce the OpenML benchmark from one entry point:
+
+```bash
+python reproduction/run_openml_benchmarks.py --list-profiles   # see what is available
+python reproduction/run_openml_benchmarks.py --tasks 0-18 --dry-run
+python reproduction/run_openml_benchmarks.py --tasks 0-18      # all methods, seed 123
+```
+
+Or run a single dataset-method pair directly:
 
 ```bash
 # DGBM-LGB, OpenML task index 0, the configuration reported in the paper
@@ -38,6 +46,7 @@ python openml/openml_lssboost_HP_single_run.py 0 exp False None None False 123 F
 | Path | Contents |
 |---|---|
 | [`reproduce/README.md`](reproduce/README.md) | **Start here.** Environments, the full experimental protocol, and a paper table/figure → script → result-file mapping |
+| `reproduction/run_openml_benchmarks.py` | Unified OpenML runner — every method and ablation profile from one command |
 | `openml/`, `uci/` | One experiment entry point per dataset–method pair |
 | `slurm/` | The job scripts used to launch every run |
 | `results/` | Per-dataset result CSVs behind every table in the paper |

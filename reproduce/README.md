@@ -213,6 +213,19 @@ python uci/UCI_lssboost_single_run_HP.py 0 exp False None None False
 
 Positional arguments: `dataset_index mode natural_grad stabilization clip_value standardize [apply_safety]`.
 
+To run every method over the whole OpenML suite from a single entry point,
+use the unified runner instead of invoking each script by hand:
+
+```bash
+python reproduction/run_openml_benchmarks.py --list-profiles
+python reproduction/run_openml_benchmarks.py --tasks 0-18 --dry-run
+python reproduction/run_openml_benchmarks.py --tasks 0-18
+```
+
+Its default profiles are the configurations reported in the paper (`exp`
+response function, no natural gradient, no stabilization, seed 123); the
+`*_natural` and `*_mad` profiles are the ablations.
+
 On the cluster, submit the corresponding array job instead:
 
 ```bash

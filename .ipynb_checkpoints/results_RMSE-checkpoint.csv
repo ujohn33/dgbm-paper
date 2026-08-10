@@ -1,7 +1,0 @@
-dset,Boston Housing,Boston Housing,Boston Housing,Boston Housing,Combined Cycle Power Plant,Combined Cycle Power Plant,Combined Cycle Power Plant,Combined Cycle Power Plant,Concrete Compression Strength,Concrete Compression Strength,Concrete Compression Strength,Concrete Compression Strength,Energy Efficiency,Energy Efficiency,Energy Efficiency,Energy Efficiency,Kin8nm,Kin8nm,Kin8nm,Kin8nm,Naval Propulsion,Naval Propulsion,Naval Propulsion,Naval Propulsion,Protein Structure,Protein Structure,Protein Structure,Protein Structure,Yacht Hydrodynamics,Yacht Hydrodynamics,Yacht Hydrodynamics,Yacht Hydrodynamics
-Metric,NLL,NLL,RMSE,RMSE,NLL,NLL,RMSE,RMSE,NLL,NLL,RMSE,RMSE,NLL,NLL,RMSE,RMSE,NLL,NLL,RMSE,RMSE,NLL,NLL,RMSE,RMSE,NLL,NLL,RMSE,RMSE,NLL,NLL,RMSE,RMSE
-,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1
-Method,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-LSSboost,2.589,0.159,4.248,1.071,2.881,0.313,4.043,0.257,3.219,0.205,6.384,0.512,1.151,0.506,1.921,0.319,-0.486,0.023,0.173,0.005,-4.395,0.064,0.007,0.001,2.942,0.076,4.724,0.03,0.577,0.521,7.709,2.958
-NGB (reported),2.43,0.15,2.94,0.53,2.79,0.11,3.79,0.18,3.04,0.17,5.06,0.61,0.6,0.45,0.46,0.06,-0.49,0.02,0.16,0.0,-5.34,0.04,0.0,0.0,2.81,0.03,4.33,0.03,0.2,0.26,0.5,0.2
-NGboost,10.3,9.197,2.673,0.442,2.793,0.202,3.62,0.195,3.426,0.414,4.608,0.543,0.745,0.681,0.462,0.059,-0.412,0.034,0.169,0.004,-4.935,0.035,0.002,0.0,2.851,0.02,4.516,0.04,2.116,2.354,0.559,0.172
