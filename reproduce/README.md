@@ -177,6 +177,9 @@ wall-clock, 40–100 GB memory, GPU only for PGBM).
 ## 5. Regenerating the paper's artifacts
 
 ```bash
+# The paper's figures: CD diagrams and the runtime boxplots
+python reproduce/make_figures.py --out reproduce/figures
+
 # Supplementary tables of final selected hyperparameters
 python reproduce/export_final_hps.py --out reproduce/tables
 
@@ -186,6 +189,23 @@ python reproduce/aggregate_results.py --out reproduce/tables
 # Record the environment
 bash reproduce/collect_env.sh > reproduce/env_report.txt
 ```
+
+`make_figures.py` writes `cd_diagram_{NLL,CRPS,RMSE}_{uci,openml}.png` and the
+`run_time_figure.png` / `hp_time_figure.png` boxplots. The CD diagrams follow
+Demšar (2006) as refined by Benavoli et al. (2016) — per-dataset ranks, a
+Friedman test, then pairwise Wilcoxon signed-rank tests with Holm correction to
+decide which methods are joined by a bar. The published figures were drawn with
+`critdd`; this reimplements the same procedure with scipy so the repository
+carries no extra dependency. Only datasets on which every method has a result
+are ranked, and the count is printed with each diagram.
+
+**These figures do not reproduce the published ones cell for cell.** On UCI,
+DGBM-LGB, GPBoost, PGBM and XLSF match the paper's NLL table exactly, but the
+DGBM-XGB and NGBoost CSVs kept here come from different runs than the ones
+tabulated, and no GPBoost OpenML result file was preserved. The regenerated
+diagrams therefore differ slightly in rank values, though not in the ordering of
+the leading methods. Rerunning those method/suite combinations with the scripts
+in `openml/` and `uci/` regenerates the missing inputs.
 
 `reproduce/job_hardware.csv` records the partition, node, memory and wall-clock
 time of every batch array task behind the published OpenML runs, so reported

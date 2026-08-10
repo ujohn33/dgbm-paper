@@ -60,6 +60,7 @@ GPBoost and XLSF need their own environments — see
 **4. Regenerate the paper's tables.**
 
 ```bash
+python reproduce/make_figures.py --out reproduce/figures   # CD diagrams + runtime plots
 python reproduce/export_final_hps.py --out reproduce/tables
 python reproduce/aggregate_results.py --out reproduce/tables
 ```
@@ -76,7 +77,7 @@ python reproduce/aggregate_results.py --out reproduce/tables
 | Path | Contents |
 |---|---|
 | [`reproduce/README.md`](reproduce/README.md) | **The full reproduction guide** |
-| `reproduce/` | Pinned environments, data fetcher, unified OpenML runner, table generators, per-job hardware record |
+| `reproduce/` | Pinned environments, data fetcher, unified OpenML runner, figure and table generators, per-job hardware record |
 | `openml/`, `uci/` | One experiment entry point per dataset–method pair |
 | `slurm/` | The batch job scripts used for the published runs |
 | `results/` | Per-dataset result CSVs behind every table in the paper |
