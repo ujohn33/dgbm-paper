@@ -17,8 +17,15 @@ the published results.
 ## 1. Installation
 
 ```bash
-git clone --recurse-submodules <REPO-URL> LSSboost
+git clone --recurse-submodules https://github.com/ujohn33/LSSboost_test LSSboost
 cd LSSboost
+```
+
+The OpenML scripts read your OpenML API key from the environment; public suite
+336 tasks download without one, but set it if you hit rate limits:
+
+```bash
+export OPENML_APIKEY=<your key>
 ```
 
 Submodule commits used for the published results:
@@ -171,11 +178,8 @@ sbatch slurm/run_DGB-LGB_eval_HP_openml.sbatch   # OpenML, 19 tasks
 sbatch slurm/run_DGB-LGB_eval_HP_uci.sbatch      # UCI,    10 tasks
 ```
 
-The array range must be `--array=0-18` for the full OpenML suite and
-`--array=0-9` for UCI. Note that
-`slurm/run_DGB-LGB_eval_HP_openml.sbatch` is currently left at `--array=10`
-from a single-dataset rerun; set it back to `0-18` before reproducing the full
-suite.
+The array ranges are `--array=0-18` for the full OpenML suite and `--array=0-9`
+for UCI.
 
 Per-method Slurm wall-clock limits range from 36 h to 3 days; dataset–method
 pairs that exceed them are reported as `---` in the paper.
