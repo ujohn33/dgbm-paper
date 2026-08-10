@@ -1,12 +1,26 @@
+# Bulk run output -- not part of the release
 data/
+archive/
+report/
+AutogluonModels/
 *.out
 *.pyc
-.out
-archive
-report
-results/
-data/
-AutogluonModels
-logs
-logs/LSSboost_logloss.csv
+__pycache__/
 .DS_Store
+.fuse_hidden*
+
+# Logs are excluded except the tuning results cited in the paper
+logs/*
+!logs/openml/
+logs/openml/*
+!logs/openml/lssboost/
+!logs/openml/xgboost/
+logs/openml/lssboost/*
+logs/openml/xgboost/*
+!logs/openml/lssboost/normal/
+!logs/openml/lssboost/natural/
+!logs/openml/xgboost/normal/
+!logs/openml/xgboost/natural/
+
+# Result CSVs backing the paper's tables are tracked
+!results/

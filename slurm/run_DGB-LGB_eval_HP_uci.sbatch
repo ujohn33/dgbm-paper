@@ -1,14 +1,13 @@
 #!/bin/bash
 
-#SBATCH --output=./report/%A_LSSboost_openml/slurm-%A_%a.out # STDOUT
-#SBATCH --job-name=LSSboost_openml
+#SBATCH --output=./report/%A_LSSboost_uci/slurm-%A_%a.out # STDOUT
+#SBATCH --job-name=LSSboost_uci
 #SBATCH --time=1-12:00:00
 #SBATCH --ntasks-per-node=1
-#SBATCH --partition=zen5_mpi
+#SBATCH --job-name=LSSboost_uci
 #SBATCH --mem-per-cpu=60G
-#SBATCH --array=0-18
+#SBATCH --array=0-9
 #SBATCH --mail-type=ALL
-
 
 # File to run on HPC
 # First activate your python environment (you might have to create your own) with:
@@ -24,6 +23,7 @@ module load LightGBM/4.5.0-foss-2023a
 module load Optuna/3.5.0-foss-2023a
 module load SciPy-bundle/2023.07-gfbf-2023a
 module load Pillow/10.0.0-GCCcore-12.3.0
+module load openpyxl/3.1.2-GCCcore-12.3.0
 
 source $VSC_SCRATCH/distiboost_311/bin/activate
 
@@ -36,10 +36,8 @@ natural_grad="False" #("True" "False")
 stabilization="None"
 clip_value="None"
 standardize="False"
-run_seed="123"
-safety="False"
 
 # Echo the parameters and dataset for logging
-echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value, standardize=$standardize, run_seed=$run_seed, safety=$safety"
+echo "Running with dataset=$dataset, mode=$mode, natural_grad=$natural_grad, stabilization=$stabilization, clipping=$clip_value and standardize=$standardize"
 
-python openml/openml_lssboost_HP_single_run.py $dataset $mode $natural_grad $stabilization $clip_value $standardize $run_seed $safety
+python uci/UCI_lssboost_single_run_HP.py $dataset $mode $natural_grad $stabilization $clip_value $standardize

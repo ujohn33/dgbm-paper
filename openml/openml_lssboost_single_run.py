@@ -19,7 +19,7 @@ from utils.logging import log_predictions
 np.random.seed(123)
 
 # Set OpenML API key
-openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
+openml.config.apikey = os.environ.get("OPENML_APIKEY", "")
 
 # Get command-line arguments
 if len(sys.argv) != 5:

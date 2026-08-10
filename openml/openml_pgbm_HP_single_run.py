@@ -33,7 +33,7 @@ def seed_everything(seed: int):
     torch.use_deterministic_algorithms(True, warn_only=True)
 
 # Set OpenML API key
-openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
+openml.config.apikey = os.environ.get("OPENML_APIKEY", "")
 
 # Define constants and parameters
 SUITE_ID = 336 # Regression on numerical features

@@ -2,9 +2,15 @@ import os
 import sys
 import json
 import csv
+import random
+import warnings
 import numpy as np
 import pandas as pd
 import time
+warnings.filterwarnings("ignore", category=UserWarning, module=r"sklearn\.utils\.parallel")
+warnings.filterwarnings("ignore", category=UserWarning, module=r"gluonts\.json")
+warnings.filterwarnings("ignore", category=FutureWarning, message=r"The 'delim_whitespace' keyword in pd\.read_csv is deprecated.*")
+
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from lightgbmlss.model import *
@@ -16,7 +22,14 @@ from utils.metrics import crps, quantile_loss
 from utils.logging import log_predictions
 from utils.safety import apply_safety_net 
 
-print("Usage: python UCI_lssboost_single_run_HP.py <seed_id> <mode> <natural_grad> <stabilization> <clip_value> <standardize> [apply_safety] [scale_floor_rel]")
+
+def seed_everything(seed: int):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+
+
+print("Usage: python UCI_lssboost_single_run_HP.py <seed_id> <mode> <natural_grad> <stabilization> <clip_value> <standardize> [apply_safety]")
 
 mode = sys.argv[2]  # e.g., 'exp'
 natural_grad = sys.argv[3].lower() == 'true'  # Convert 'True' or 'False' to boolean
@@ -27,15 +40,15 @@ standardize = False if len(sys.argv) <= 6 else sys.argv[6].lower() == 'true'
 apply_safety = False if len(sys.argv) <= 7 else sys.argv[7].lower() == 'true'
     
 if natural_grad:
-    method_name = f'LSSboost_natural_{mode}_{stabilization}_std_{standardize}_safety_{apply_safety}_srel_{scale_floor_rel}'
+    method_name = f'LSSboost_natural_{mode}_{stabilization}_std_{standardize}_safety_{apply_safety}'
 else:
-    method_name = f'LSSboost_no_natural_{mode}_{stabilization}_std_{standardize}_safety_{apply_safety}_srel_{scale_floor_rel}'
+    method_name = f'LSSboost_no_natural_{mode}_{stabilization}_std_{standardize}_safety_{apply_safety}'
 
 dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
         "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data",
         header=None,
-        delim_whitespace=True,
+        sep=r"\s+",
     ),
     "Concrete Compression Strength": lambda: pd.read_excel(
         "https://archive.ics.uci.edu/ml/machine-learning-databases/concrete/compressive/Concrete_Data.xls"
@@ -45,7 +58,7 @@ dataset_name_to_loader = {
     ).iloc[:, :-1],
     "Kin8nm": lambda: pd.read_csv("ngboost/data/uci/kin8nm.csv"),
     "Naval Propulsion": lambda: pd.read_csv(
-        "ngboost/data/uci/naval-propulsion.txt", delim_whitespace=True, header=None
+        "ngboost/data/uci/naval-propulsion.txt", sep=r"\s+", header=None
     ).iloc[:, :-1],
     "Combined Cycle Power Plant": lambda: pd.read_excel("ngboost/data/uci/power-plant.xlsx"),
     "Protein Structure": lambda: pd.read_csv("ngboost/data/uci/protein.csv")[
@@ -58,7 +71,7 @@ dataset_name_to_loader = {
     "Yacht Hydrodynamics": lambda: pd.read_csv(
         "http://archive.ics.uci.edu/ml/machine-learning-databases/00243/yacht_hydrodynamics.data",
         header=None,
-        delim_whitespace=True,
+        sep=r"\s+",
     ),
     "Year Prediciton MSD": lambda: pd.read_csv("ngboost/data/uci/YearPredictionMSD.txt").iloc[:, ::-1],
 }
@@ -137,6 +150,7 @@ def run_single_arguement(run_seed):
     lss_rmse, lss_nll, times, times_HP = [], [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
     wql_01, wql_05, wql_09, wql_avg = [], [], [], []
+    fold_metrics = []
 
     # Load dataset -- use last column as labela
     data = dataset_name_to_loader[dset]()
@@ -292,8 +306,8 @@ def run_single_arguement(run_seed):
         elapsed_time = end_time - start_time  # Calculate elapsed time
 
         lss_rmse += [np.sqrt(mean_squared_error(forecast['loc'].values, y_test))]
-        val_rmse = [np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))]
-        lss_nll += [-norm(forecast['loc'], forecast['scale']).logpdf(y_test.flatten()).mean()]
+        val_rmse = np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))
+        lss_nll += [-norm(forecast['loc'], forecast['scale']).logpdf(y_test).mean()]
         samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test.flatten(), samples)
@@ -324,6 +338,32 @@ def run_single_arguement(run_seed):
         wql_05 += [quantile_losses[1]]
         wql_09 += [quantile_losses[2]]
         wql_avg += [wql_avg_fold]
+        fold_metrics.append(
+            {
+                "dataset": dset,
+                "fold": itr + 1,
+                "n_folds": args["n_splits"],
+                "best_iter": int(best_iter),
+                "rmse_val": float(val_rmse),
+                "rmse_test": float(lss_rmse[-1]),
+                "nll_test": float(lss_nll[-1]),
+                "crps_test": float(lss_crps[-1]),
+                "crps_cal_test": float(lss_crps_cal[-1]),
+                "crps_sha_test": float(lss_crps_sha[-1]),
+                "wql01_test": float(wql_01[-1]),
+                "wql05_test": float(wql_05[-1]),
+                "wql09_test": float(wql_09[-1]),
+                "wql_avg_test": float(wql_avg[-1]),
+                "time_pred": float(elapsed_time),
+                "time_hp": float(elapsed_time_HP),
+                "dataset_idx": int(run_seed),
+                "standardize": args["standardize"],
+                "apply_safety": args["apply_safety"],
+                "stabilization": args["stabilization"],
+                "response_mode": args["mode"],
+                "natural_grad": args["natural_grad"],
+            }
+        )
 
         print(
                 "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_CAL=%.4f CRPS_SHA=%.4f TIME=%.4f"
@@ -331,7 +371,7 @@ def run_single_arguement(run_seed):
                     itr + 1,
                     args['n_splits'],
                     best_iter,
-                    np.sqrt(val_rmse),
+                    val_rmse,
                     np.sqrt(mean_squared_error(forecast['loc'].values, y_test)),
                     lss_nll[-1],
                     lss_crps[-1],
@@ -340,6 +380,14 @@ def run_single_arguement(run_seed):
                     elapsed_time,
                 )
             )
+    log_dir = "logs/uci/fold_metrics"
+    os.makedirs(log_dir, exist_ok=True)
+    fold_log_path = os.path.join(
+        log_dir,
+        f"{method_name}_dataset_{str(dset).replace(' ', '_')}_idx{int(run_seed)}.csv",
+    )
+    pd.DataFrame(fold_metrics).to_csv(fold_log_path, index=False)
+    print(f"Saved per-fold metrics to {fold_log_path}")
     print(dset)
     print(
             "== RMSE GBMLSS=%.4f ± %.4f, NLL GBMLSS=%.4f ± %.4f, CRPS = %.4f  +/- %.4f, CRPS_cal =  %.4f +/- %.4f, CRPS_sha =  %.4f +/- %.4f,  TIME = %.4f"
@@ -362,10 +410,14 @@ def run_single_arguement(run_seed):
 
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
-    results = run_single_arguement(sys.argv[1])
+    run_seed = int(sys.argv[1])
+    seed_everything(run_seed)
+    args["random_state"] = run_seed
+    results = run_single_arguement(run_seed)
     method_name = f"{method_name}_n_est_{args['n_est']}"  # Assuming args['n_estimators'] exists
-    batch_job_id = os.environ.get("SLURM_ARRAY_JOB_ID") or os.environ.get("SLURM_JOB_ID") or "11697976"
-    file_path = f"results/uci/uci_{method_name}_job_{batch_job_id}.csv"
+    results_dir = "results/uci"
+    os.makedirs(results_dir, exist_ok=True)
+    file_path = os.path.join(results_dir, f"uci_{method_name}_seed{run_seed}.csv")
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

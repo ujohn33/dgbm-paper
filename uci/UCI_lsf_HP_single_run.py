@@ -3,6 +3,17 @@ import os
 import random
 import sys
 import time
+import warnings
+
+_worker_warning_filters = [
+    "ignore::UserWarning:sklearn.utils.parallel",
+    "ignore::UserWarning:gluonts.json",
+]
+_existing_pywarnings = os.environ.get("PYTHONWARNINGS", "").strip()
+if _existing_pywarnings:
+    os.environ["PYTHONWARNINGS"] = ",".join(_worker_warning_filters + [_existing_pywarnings])
+else:
+    os.environ["PYTHONWARNINGS"] = ",".join(_worker_warning_filters)
 
 import numpy as np
 import optuna
@@ -28,7 +39,7 @@ dataset_name_to_loader = {
     "Boston Housing": lambda: pd.read_csv(
         "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data",
         header=None,
-        delim_whitespace=True,
+        sep=r"\s+",
     ),
     "Concrete Compression Strength": lambda: pd.read_excel(
         "https://archive.ics.uci.edu/ml/machine-learning-databases/concrete/compressive/Concrete_Data.xls"
@@ -38,7 +49,7 @@ dataset_name_to_loader = {
     ).iloc[:, :-1],
     "Kin8nm": lambda: pd.read_csv("ngboost/data/uci/kin8nm.csv"),
     "Naval Propulsion": lambda: pd.read_csv(
-        "ngboost/data/uci/naval-propulsion.txt", delim_whitespace=True, header=None
+        "ngboost/data/uci/naval-propulsion.txt", sep=r"\s+", header=None
     ).iloc[:, :-1],
     "Combined Cycle Power Plant": lambda: pd.read_excel("ngboost/data/uci/power-plant.xlsx"),
     "Protein Structure": lambda: pd.read_csv("ngboost/data/uci/protein.csv")[
@@ -51,7 +62,7 @@ dataset_name_to_loader = {
     "Yacht Hydrodynamics": lambda: pd.read_csv(
         "http://archive.ics.uci.edu/ml/machine-learning-databases/00243/yacht_hydrodynamics.data",
         header=None,
-        delim_whitespace=True,
+        sep=r"\s+",
     ),
     "Year Prediciton MSD": lambda: pd.read_csv("ngboost/data/uci/YearPredictionMSD.txt").iloc[:, ::-1],
 }
@@ -71,14 +82,28 @@ dataset_list = [
 
 args = {
     "n_splits": 20,
-    "n_trials": 20,
+    "n_trials": 10,
     "n_forecasts": 200,
     "score": "LSF",
     "distn": "Empirical",
 }
 
 method_name = "GluonTS_LSF"
-WRITE_PREDICTIONS = os.environ.get("UCI_WRITE_PREDICTIONS", "0") == "1"
+
+# Suppress repetitive warnings that would bloat logs
+warnings.filterwarnings("ignore", category=UserWarning, module=r"sklearn\.utils\.parallel")
+warnings.filterwarnings(
+    "ignore",
+    message=r"`sklearn\.utils\.parallel\.delayed` should be used with `sklearn\.utils\.parallel\.Parallel`.*",
+    category=UserWarning,
+)
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    module=r"gluonts\.json",
+)
+
+WRITE_PREDICTIONS = os.environ.get("UCI_LSF_WRITE_PREDICTIONS", os.environ.get("UCI_WRITE_PREDICTIONS", "0")) == "1"
 
 
 class LevelSetForecaster:
@@ -185,6 +210,7 @@ def tune_params(X_train, y_train, seed):
 
 def run_single_argument(dataset_idx, run_seed):
     dset = dataset_list[int(dataset_idx)]
+    print(f"Starting dataset: {dset}")
     data = dataset_name_to_loader[dset]()
     X, y = data.iloc[:, :-1].values, data.iloc[:, -1].values
 
@@ -306,6 +332,7 @@ if __name__ == "__main__":
     dataset_idx = int(sys.argv[1])
     run_seed = 123 if len(sys.argv) <= 2 else int(sys.argv[2])
     seed_everything(run_seed)
+    print(f"Selected dataset index: {dataset_idx} ({dataset_list[dataset_idx]})")
 
     results = run_single_argument(dataset_idx=dataset_idx, run_seed=run_seed)
 

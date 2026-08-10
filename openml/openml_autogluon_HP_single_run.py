@@ -15,7 +15,7 @@ from utils.metrics import quantile_loss
 np.random.seed(123)
 
 # Set OpenML API key
-openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
+openml.config.apikey = os.environ.get("OPENML_APIKEY", "")
 
 # Define constants and parameters
 SUITE_ID = 336 # Regression on numerical features

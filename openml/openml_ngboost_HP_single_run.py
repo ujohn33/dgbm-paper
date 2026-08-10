@@ -37,7 +37,7 @@ def seed_everything(seed: int):
         pass
 
 # Set OpenML API key
-openml.config.apikey = '0fc137c28db32cdfecb6347178c7be68'
+openml.config.apikey = os.environ.get("OPENML_APIKEY", "")
 
 print("Usage: python openml_ngboost_HP_single_run.py <task_idx> [run_seed]")
 run_seed = 123 if len(sys.argv) <= 2 else int(sys.argv[2])

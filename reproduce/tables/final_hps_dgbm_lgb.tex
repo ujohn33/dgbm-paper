@@ -1,0 +1,31 @@
+\begin{table}[h!]
+  \centering
+  \caption{Final hyperparameters selected by TPE for DGBM-LGB on each OpenML dataset. \texttt{opt\_rounds} is the number of boosting rounds returned by the tuning stage (the upper bound was 2000). \texttt{feature\_pre\_filter} was fixed to \texttt{False}, \texttt{boosting} was fixed to \texttt{gbdt}, \texttt{device} was fixed to \texttt{cpu} for all datasets.}
+  \label{tab:final_hps_lgb}
+  \adjustbox{max width=\textwidth}{
+  \begin{tabular}{lrrrrrr}
+  \toprule
+  \textbf{Dataset} & \texttt{eta} & \texttt{max\_depth} & \texttt{num\_leaves} & \texttt{min\_data\_in\_leaf} & \texttt{lambda\_l1} & \texttt{opt\_rounds} \\
+  \midrule
+  abalone & 0.0292 & 9 & 20 & 67 & 0.0719 & 120 \\
+  Ailerons & 0.0717 & 5 & 52 & 88 & 0.000462 & 153 \\
+  Bike\_Sharing\_Demand & 0.0713 & 10 & 23 & 61 & 0.000347 & 173 \\
+  Brazilian\_houses & 0.0437 & 10 & 51 & 29 & 5.35e-5 & 190 \\
+  cpu\_act & 0.0235 & 7 & 82 & 100 & 1.08e-8 & 258 \\
+  delays\_zurich\_transport & 0.0983 & 10 & 78 & 75 & 1.55e-5 & 200 \\
+  diamonds & 0.0246 & 10 & 55 & 89 & 2.9e-5 & 279 \\
+  elevators & 0.0347 & 8 & 20 & 87 & 0.0108 & 427 \\
+  house\_16H & 0.0219 & 7 & 50 & 79 & 2.99e-7 & 254 \\
+  house\_sales & 0.0394 & 10 & 37 & 91 & 1.91e-6 & 171 \\
+  houses & 0.024 & 10 & 39 & 77 & 2 & 359 \\
+  medical\_charges & 0.0259 & 2 & 28 & 100 & 9.68 & 1014 \\
+  MiamiHousing2016 & 0.0341 & 10 & 37 & 84 & 0.00186 & 198 \\
+  nyc-taxi-green-dec-2016 & 0.00611 & 4 & 38 & 64 & 0.0299 & 994 \\
+  pol & 0.0558 & 10 & 62 & 79 & 1.18e-6 & 198 \\
+  sulfur & 0.0677 & 8 & 43 & 71 & 5.79e-6 & 68 \\
+  superconduct & 0.0607 & 10 & 34 & 91 & 1.41e-7 & 124 \\
+  wine\_quality & 0.0235 & 7 & 97 & 82 & 1.52e-5 & 184 \\
+  yprop\_4\_1 & 0.0701 & 4 & 30 & 94 & 2.46e-8 & 73 \\
+  \bottomrule
+  \end{tabular}}
+\end{table}

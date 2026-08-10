@@ -1,0 +1,1 @@
+{"max_depth": 7, "min_child_weight": 37, "eta": 0.030348469150687372, "subsample": 0.6959995592983678, "reg_alpha": 9.255428772965585e-06, "device": "cpu", "booster": "gbtree", "opt_rounds": 279}

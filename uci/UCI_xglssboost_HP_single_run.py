@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import random
 import numpy as np
 import pandas as pd
 import time
@@ -15,6 +16,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.metrics import crps, quantile_loss
 from utils.logging import log_predictions
 from utils.safety import apply_safety_net
+
+
+def seed_everything(seed: int):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+
 
 print("Usage: python openml_lssboost_HP_single_run.py <seed_id> <mode> <natural_grad> <stabilization> <clip value> <standardize>")
 
@@ -99,6 +107,7 @@ def run_single_arguement(run_seed):
     y_true, lss_rmse, lss_nll, times, times_HP = [], [], [], [], []
     lss_crps, lss_crps_cal, lss_crps_sha = [], [], []
     wql_01, wql_05, wql_09, wql_avg = [], [], [], []
+    fold_metrics = []
 
     # Load dataset -- use last column as labela
     data = dataset_name_to_loader[args['dataset']]()
@@ -180,7 +189,16 @@ def run_single_arguement(run_seed):
         else:
             current_param_dict = param_dict
 
+        eps = 1e-8
+        mu0 = float(np.mean(y_trainall))
+        sigma0 = max(float(np.std(y_trainall)), eps)
         xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
+        # if args["mode"] == "exp":
+        #     xgblss.start_values = np.array([mu0, np.log(sigma0)], dtype=float)
+        # elif args["mode"] == "softplus":
+        #     xgblss.start_values = np.array([mu0, np.log(np.expm1(sigma0) + eps)], dtype=float)
+        # else:
+        #     xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
         opt_param = xgblss.hyper_opt(current_param_dict, full_train_data, num_boost_round=args["n_est"],
                                     nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=80, n_trials=20,
@@ -209,7 +227,12 @@ def run_single_arguement(run_seed):
         start_time = time.time()
         best_iter = xgblss.booster.best_iteration
 
-        xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
+        mu_fold = float(np.mean(y_trainall))
+        sigma_fold = max(float(np.std(y_trainall)), eps)
+        if args["mode"] == "exp":
+            xgblss.start_values = np.array([mu_fold, np.log(sigma_fold)], dtype=float)
+        elif args["mode"] == "softplus":
+            xgblss.start_values = np.array([mu_fold, np.log(np.expm1(sigma_fold) + eps)], dtype=float)
 
         final_gbm = xgblss.train(opt_params, full_train_data, 
                             num_boost_round = xgblss.booster.best_iteration,
@@ -240,7 +263,7 @@ def run_single_arguement(run_seed):
         elapsed_time = end_time - start_time  # Calculate elapsed time
     
         lss_rmse += [np.sqrt(mean_squared_error(forecast['loc'].values, y_test))]
-        val_rmse = [np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))]
+        val_rmse = np.sqrt(mean_squared_error(forecast_val['loc'].values, y_val))
         lss_nll += [-norm(forecast['loc'], forecast['scale']).logpdf(y_test.flatten()).mean()]
         samples = np.array([[np.random.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(forecast['loc'], forecast['scale'])]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
@@ -272,6 +295,31 @@ def run_single_arguement(run_seed):
         wql_05 += [quantile_losses[1]]
         wql_09 += [quantile_losses[2]]
         wql_avg += [wql_avg_fold]
+        fold_metrics.append(
+            {
+                "dataset": dset,
+                "fold": itr + 1,
+                "n_folds": args["n_splits"],
+                "best_iter": int(best_iter),
+                "rmse_val": float(val_rmse),
+                "rmse_test": float(lss_rmse[-1]),
+                "nll_test": float(lss_nll[-1]),
+                "crps_test": float(lss_crps[-1]),
+                "crps_cal_test": float(lss_crps_cal[-1]),
+                "crps_sha_test": float(lss_crps_sha[-1]),
+                "wql01_test": float(wql_01[-1]),
+                "wql05_test": float(wql_05[-1]),
+                "wql09_test": float(wql_09[-1]),
+                "wql_avg_test": float(wql_avg[-1]),
+                "time_pred": float(elapsed_time),
+                "time_hp": float(elapsed_time_HP),
+                "dataset_idx": int(run_seed),
+                "standardize": args["standardize"],
+                "stabilization": args["stabilization"],
+                "response_mode": args["mode"],
+                "natural_grad": args["natural_grad"],
+            }
+        )
 
         print(
                 "[%d/%d] BestIter=%d RMSE: Val=%.4f Test=%.4f NLL: Test=%.4f CRPS=%.4f CRPS_CAL=%.4f CRPS_SHA=%.4f TIME=%.4f"
@@ -279,7 +327,7 @@ def run_single_arguement(run_seed):
                     itr + 1,
                     args['n_splits'],
                     best_iter,
-                    np.sqrt(val_rmse),
+                    val_rmse,
                     np.sqrt(mean_squared_error(forecast['loc'].values, y_test)),
                     lss_nll[-1],
                     lss_crps[-1],
@@ -288,6 +336,14 @@ def run_single_arguement(run_seed):
                     elapsed_time,
                 )
             )
+    log_dir = "logs/uci/fold_metrics"
+    os.makedirs(log_dir, exist_ok=True)
+    fold_log_path = os.path.join(
+        log_dir,
+        f"{method_name}_dataset_{str(dset).replace(' ', '_')}_idx{int(run_seed)}.csv",
+    )
+    pd.DataFrame(fold_metrics).to_csv(fold_log_path, index=False)
+    print(f"Saved per-fold metrics to {fold_log_path}")
     # After the folds are evaluated
     print(dset)
     print(
@@ -312,12 +368,14 @@ def run_single_arguement(run_seed):
 
 if __name__ == "__main__":
     vsc_data = os.environ['VSC_DATA']
-    results = run_single_arguement(sys.argv[1])
+    run_seed = int(sys.argv[1])
+    seed_everything(run_seed)
+    args["random_state"] = run_seed
+    results = run_single_arguement(run_seed)
     method_name = f"{method_name}_n_est_{args['n_est']}"  # Assuming args['n_est'] exists
-    if args['natural_grad']:
-        file_path = f"results/uci/uci_{method_name}.csv"
-    else:
-        file_path = f"results/uci/uci_{method_name}.csv"
+    results_dir = "results/uci"
+    os.makedirs(results_dir, exist_ok=True)
+    file_path = os.path.join(results_dir, f"uci_{method_name}_seed{run_seed}.csv")
     header = ["dset","RMSE-mean","RMSE-std","NLL-mean","NLL-std","CRPS-mean","CRPS-std","CRPS-calibration-mean","CRPS-calibration-std","CRPS-sharpness-mean","CRPS-sharpness-std","time_run","time_HP","WQL01-mean", "WQL01-std","WQL05-mean", "WQL05-std","WQL09-mean", "WQL09-std", "WQL_avg-mean", "WQL_avg-std"]
     # Check if the file exists
     file_exists = os.path.isfile(file_path)

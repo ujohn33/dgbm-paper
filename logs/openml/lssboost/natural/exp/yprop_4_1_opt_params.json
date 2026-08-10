@@ -1,0 +1,1 @@
+{"eta": 0.010665007547537015, "max_depth": 4, "num_leaves": 89, "min_data_in_leaf": 90, "feature_pre_filter": false, "lambda_l1": 2.911879449556792, "device": "cpu", "boosting": "gbdt", "opt_rounds": 160}

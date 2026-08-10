@@ -4,6 +4,17 @@ import json
 import csv
 import random
 import time
+import warnings
+
+_worker_warning_filters = [
+    "ignore::UserWarning:sklearn.utils.parallel",
+    "ignore::UserWarning:gluonts.json",
+]
+_existing_pywarnings = os.environ.get("PYTHONWARNINGS", "").strip()
+if _existing_pywarnings:
+    os.environ["PYTHONWARNINGS"] = ",".join(_worker_warning_filters + [_existing_pywarnings])
+else:
+    os.environ["PYTHONWARNINGS"] = ",".join(_worker_warning_filters)
 
 import openml
 import numpy as np
@@ -30,12 +41,25 @@ run_seed = 123 if len(sys.argv) <= 2 else int(sys.argv[2])
 seed_everything(run_seed)
 
 # Set OpenML API key
-openml.config.apikey = "0fc137c28db32cdfecb6347178c7be68"
+openml.config.apikey = os.environ.get("OPENML_APIKEY", "")
+
+# Suppress repetitive warnings that would bloat logs
+warnings.filterwarnings("ignore", category=UserWarning, module=r"sklearn\.utils\.parallel")
+warnings.filterwarnings(
+    "ignore",
+    message=r"`sklearn\.utils\.parallel\.delayed` should be used with `sklearn\.utils\.parallel\.Parallel`.*",
+    category=UserWarning,
+)
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    module=r"gluonts\.json",
+)
 
 args = {
     "SUITE_ID": 336,  # Regression on numerical features
     "n_splits": 5,
-    "n_trials": 20,
+    "n_trials": 10,
     "n_forecasts": 100,
     "score": "LSF",
     "distn": "Empirical",
@@ -44,6 +68,8 @@ args = {
 
 method_name = "GluonTS_LSF"
 benchmark_suite = openml.study.get_suite(args["SUITE_ID"])
+WRITE_PREDICTIONS = os.environ.get("OPENML_LSF_WRITE_PREDICTIONS", "0") == "1"
+WRITE_OPT_PARAMS = os.environ.get("OPENML_LSF_WRITE_OPT_PARAMS", "0") == "1"
 
 
 def encode_categorical_series(y):
@@ -136,7 +162,7 @@ def tune_params(X_train_opt, y_train_opt):
             "n_estimators": trial.suggest_int("n_estimators", 100, 800),
             "max_depth": trial.suggest_int("max_depth", 3, 20),
             "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 20),
-            "min_bin_size": trial.suggest_int("min_bin_size", 20, 500),
+            "min_bin_size": trial.suggest_int("min_bin_size", 100, 500),
             "n_forecasts": args["n_forecasts"],
         }
         model = LevelSetForecaster(params=params, seed=run_seed).fit(X_tune, y_tune)
@@ -146,7 +172,8 @@ def tune_params(X_train_opt, y_train_opt):
             seed=run_seed + 17,
         )
         mu = samples.mean(axis=1)
-        std = np.maximum(samples.std(axis=1), 1e-6)
+        floor = max(5e-2 * np.std(y_tune), 1e-3)
+        std = np.maximum(samples.std(axis=1, ddof=1), floor)
         nll = -norm(mu, std).logpdf(y_val).mean()
         return nll
 
@@ -193,10 +220,11 @@ def run_single_argument(task_id):
     elapsed_time_hp = time.time() - start_time_hp
     print("Best hyperparameters:", best_params)
 
-    out_dir = "logs/openml/lsf"
-    os.makedirs(out_dir, exist_ok=True)
-    with open(f"{out_dir}/{dataset.name}_opt_params.json", "w") as f:
-        json.dump(best_params, f)
+    if WRITE_OPT_PARAMS:
+        out_dir = "logs/openml/lsf"
+        os.makedirs(out_dir, exist_ok=True)
+        with open(f"{out_dir}/{dataset.name}_opt_params.json", "w") as f:
+            json.dump(best_params, f)
 
     for fold in range(1, n_folds):
         train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=fold, sample=0)
@@ -227,7 +255,7 @@ def run_single_argument(task_id):
 
         mu = samples.mean(axis=1)
         y_scale = np.std(y_trainall)
-        std_floor = max(1e-2 * y_scale, 1e-3)
+        std_floor = max(5e-2 * y_scale, 1e-3)
         std = np.maximum(samples.std(axis=1, ddof=1), std_floor)
 
         rmse = np.sqrt(mean_squared_error(y_test, yhat_point))
@@ -251,15 +279,16 @@ def run_single_argument(task_id):
             q_loss = quantile_loss(q, y_test, quantile_preds[str(q)]).mean()
             quantile_losses.append(q_loss)
 
-        log_predictions(
-            fold,
-            dataset.name,
-            y_test,
-            mu,
-            std,
-            quantile_preds,
-            f"logs/openml/predictions/{method_name}.csv",
-        )
+        if WRITE_PREDICTIONS:
+            log_predictions(
+                fold,
+                dataset.name,
+                y_test,
+                mu,
+                std,
+                quantile_preds,
+                f"logs/openml/predictions/{method_name}.csv",
+            )
 
         wql_avg_fold = np.mean(quantile_losses)
         wql_01.append(quantile_losses[0])
@@ -311,6 +340,9 @@ if __name__ == "__main__":
     print("GLUONTS LSF")
     print("______________________")
     task_number = benchmark_suite.tasks[int(sys.argv[1])]
+    task = openml.tasks.get_task(task_number)
+    dataset = task.get_dataset()
+    print(f"Selected OpenML task: {task_number} ({dataset.name})")
     results = run_single_argument(task_number)
 
     file_path = "results/openml/openml_GluonTS_LSF.csv"

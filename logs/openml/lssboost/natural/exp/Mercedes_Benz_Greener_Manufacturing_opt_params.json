@@ -1,0 +1,1 @@
+{"eta": 0.025, "max_depth": 2, "num_leaves": 55, "min_data_in_leaf": 84, "feature_pre_filter": false, "boosting": "gbdt", "opt_rounds": 413}

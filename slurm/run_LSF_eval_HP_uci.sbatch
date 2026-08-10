@@ -6,19 +6,13 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=90G
-#SBATCH --array=0-9
+#SBATCH --array=4
 #SBATCH --mail-type=ALL
 
 set -euo pipefail
 
 module purge
 module load Python/3.11.3-GCCcore-12.3.0
-module load IPython/8.14.0-GCCcore-12.3.0
-module load jupyter-server/2.14.0-GCCcore-12.3.0
-module load aiohttp/3.8.5-GCCcore-12.3.0
-module load Optuna/3.5.0-foss-2023a
-module load SciPy-bundle/2023.07-gfbf-2023a
-module load Pillow/10.0.0-GCCcore-12.3.0
 
 LSF_VENV="${LSF_VENV:-/scratch/brussel/105/vsc10528/venvs/lsf_openml_311}"
 RUN_SEED="${RUN_SEED:-123}"
@@ -35,10 +29,10 @@ if [[ ! -f "${LSF_VENV}/bin/activate" ]]; then
 fi
 
 source "${LSF_VENV}/bin/activate"
-unset PYTHONPATH || true
 unset PYTHONHOME || true
 unset PYTHONUSERBASE || true
 export PYTHONNOUSERSITE=1
+export PYTHONWARNINGS="ignore::UserWarning:sklearn.utils.parallel,ignore::UserWarning:gluonts.json,ignore:The 'delim_whitespace' keyword in pd.read_csv is deprecated.*:FutureWarning"
 
 cd /scratch/brussel/105/vsc10528/LSSboost
 
@@ -102,4 +96,4 @@ echo "  auto_install_excel_deps=${LSF_AUTO_INSTALL_EXCEL_DEPS}"
 echo "  python=$(which python)"
 echo "  lsf_venv=${LSF_VENV}"
 
-python uci/UCI_lsf_HP_single_run.py "${DATASET_IDX}" "${RUN_SEED}"
+python -u uci/UCI_lsf_HP_single_run.py "${DATASET_IDX}" "${RUN_SEED}"
