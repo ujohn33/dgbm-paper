@@ -14,7 +14,7 @@ set -euo pipefail
 # ------------------------------------------------------------------------------
 # Configurable submission notes:
 # - You can override SBATCH resources at submit time, e.g.:
-#   sbatch --time=1-00:00:00 --cpus-per-task=4 --mem=32G reproduction/run_openml_benchmarks.sbatch
+#   sbatch --time=1-00:00:00 --cpus-per-task=4 --mem=32G reproduce/run_openml_benchmarks.sbatch
 # - You can override runtime variables via --export (examples at bottom).
 # ------------------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ try_module "Pillow/10.0.0-GCCcore-12.3.0"
 try_module "openpyxl/3.1.2-GCCcore-12.3.0"
 
 # Optional venv activation used in your existing SLURM scripts.
-BENCHMARK_VENV="${BENCHMARK_VENV:-/scratch/brussel/105/vsc10528/distiboost_311}"
+BENCHMARK_VENV="${BENCHMARK_VENV:-${PROJECT_ROOT:-.}/.venv}"
 if [[ -f "${BENCHMARK_VENV}/bin/activate" ]]; then
   # shellcheck disable=SC1090
   source "${BENCHMARK_VENV}/bin/activate"
@@ -44,7 +44,7 @@ else
   echo "[warn] Continuing without venv activation."
 fi
 
-PROJECT_ROOT="${PROJECT_ROOT:-/scratch/brussel/105/vsc10528/LSSboost}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "${PROJECT_ROOT}"
 
 export OPENML_SKIP_PARQUET=true
@@ -52,7 +52,7 @@ export CUDA_VISIBLE_DEVICES=""
 
 # -------- Configurable knobs --------
 # Comma-separated profile names from:
-#   python reproduction/run_openml_benchmarks.py --list-profiles
+#   python reproduce/run_openml_benchmarks.py --list-profiles
 OPENML_PROFILES="${OPENML_PROFILES:-lssboost_no_natural,xglssboost_no_natural,pgbm_hp,gpboost_hp,ngboost_hp,lsf_gluonts}"
 RUN_SEED="${RUN_SEED:-123}"
 PYTHON_BIN_USER="${PYTHON_BIN:-}"
@@ -61,7 +61,7 @@ OPENML_MAX_RUNS="${OPENML_MAX_RUNS:-}"
 OPENML_EXTRA_ARGS="${OPENML_EXTRA_ARGS:-}"
 OPENML_TASK_IDS="${OPENML_TASK_IDS:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18}"
 OPENML_AUTO_INSTALL_DEPS="${OPENML_AUTO_INSTALL_DEPS:-0}"
-LSF_VENV="${LSF_VENV:-/scratch/brussel/105/vsc10528/venvs/lsf_openml_311}"
+LSF_VENV="${LSF_VENV:-${PROJECT_ROOT:-.}/.venv-xlsf}"
 
 if [[ "${OPENML_PROFILES}" == *"lsf_gluonts"* ]]; then
   if [[ -f "${LSF_VENV}/bin/activate" ]]; then
@@ -147,7 +147,7 @@ PY
   fi
 fi
 
-cmd=("${PYTHON_BIN}" reproduction/run_openml_benchmarks.py \
+cmd=("${PYTHON_BIN}" reproduce/run_openml_benchmarks.py \
   --tasks "${TASK_IDX}" \
   --profiles "${OPENML_PROFILES}" \
   --seed "${RUN_SEED}" \
@@ -174,4 +174,4 @@ echo "  command=${cmd[*]}"
 # export OPENML_TASK_IDS="0,7,14"
 # sbatch --array=0-2 \
 #   --export=ALL,OPENML_TASK_IDS,OPENML_PROFILES="pgbm_hp,lsf_gluonts",RUN_SEED=123,OPENML_DRY_RUN=0 \
-#   reproduction/run_openml_benchmarks.sbatch
+#   reproduce/run_openml_benchmarks.sbatch

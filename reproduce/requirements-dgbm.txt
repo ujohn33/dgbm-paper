@@ -1,7 +1,11 @@
+-e git+https://github.com/ujohn33/ngboost_fork@db4d19b0838fd41b323eb04629ba8b4d4073e137#egg=ngboost&subdirectory=../../ngboost
+-e git+https://github.com/ujohn33/XGBoostLSS.git@6e7253281aca135dfe2a8a43ef1e8ab0d34951c3#egg=xgboostlss
 annotated-types==0.7.0
+argon2-cffi-bindings==25.1.0
+argon2-cffi==25.1.0
 asttokens==3.0.0
-autograd==1.7.0
 autograd-gamma==0.5.0
+autograd==1.7.0
 colorlog==6.8.2
 contourpy==1.3.0
 cycler==0.12.1
@@ -21,14 +25,13 @@ kiwisolver==1.4.7
 lifelines==0.29.0
 lightgbm==4.2.0
 llvmlite==0.43.0
-matplotlib==3.8.4
 matplotlib-inline==0.1.7
+matplotlib==3.8.4
 minio==7.2.15
 mizani==0.9.3
 mpmath==1.3.0
 nest-asyncio==1.6.0
 networkx==3.3
--e git+https://github.com/ujohn33/ngboost_fork@db4d19b0838fd41b323eb04629ba8b4d4073e137#egg=ngboost&subdirectory=../../ngboost
 ninja==1.11.1.1
 numba==0.60.0
 numpy==1.26.4
@@ -96,5 +99,4 @@ tzdata==2024.2
 wcwidth==0.2.13
 wrapt==1.16.0
 xgboost==2.0.3
--e git+https://github.com/ujohn33/XGBoostLSS.git@6e7253281aca135dfe2a8a43ef1e8ab0d34951c3#egg=xgboostlss
 xmltodict==0.14.2

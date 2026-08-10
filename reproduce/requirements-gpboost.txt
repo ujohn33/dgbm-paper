@@ -1,11 +1,9 @@
 # GPBoost baseline environment.
 #
-# The original venv ($VSC_SCRATCH/distiboost, Python 3.10.4 + the
-# SciPy-bundle/2022.05-foss-2022a, scikit-learn/1.1.2-foss-2022a and
-# Optuna/3.1.0-foss-2022a modules) no longer exists on the cluster, so this file
-# is not a `pip freeze` of it. gpboost is pinned to 1.5.6, the release current
-# when the GPBoost benchmark jobs ran (2025-03-22; the earlier UCI runs of
-# 2024-11-07 used 1.5.3 from the same 1.5 series).
+# GPBoost ran in its own Python 3.10 environment, which was not preserved, so
+# this file is not a `pip freeze`. gpboost is pinned to 1.5.6, the release
+# current when the GPBoost benchmark jobs ran (2025-03-22; the earlier UCI runs
+# of 2024-11-07 used 1.5.3 from the same 1.5 series).
 #
 # 1.5.6 was verified to install and to expose exactly the API used by
 # openml/openml_gpboost_HP_single_run.py and uci/UCI_gpboost_HP_single_run.py:

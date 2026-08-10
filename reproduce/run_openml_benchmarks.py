@@ -5,7 +5,7 @@ This script mirrors the heterogeneous OpenML runs currently spread across
 multiple SLURM files and executes them from one place.
 
 Outputs are stored under:
-  reproduction/results/
+  reproduce/runs/
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RESULTS_ROOT = REPO_ROOT / "reproduction" / "results"
+RESULTS_ROOT = REPO_ROOT / "reproduce" / "runs"
 
 
 def parse_task_indices(spec: str) -> list[int]:

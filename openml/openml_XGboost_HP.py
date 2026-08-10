@@ -23,7 +23,10 @@ np.random.seed(123)
 openml.config.apikey = os.environ.get("OPENML_APIKEY", "")
 
 # Define constants and parameters
-MODEl_PATH = os.environ['VSC_SCRATCH'] + '/LSSboost/'
+MODEl_PATH = os.environ.get(
+    'DGBM_MODEL_PATH',
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '')
+)
 np.random.seed(1)
 natural_flag = False
 

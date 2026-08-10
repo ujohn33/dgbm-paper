@@ -30,4 +30,4 @@ reproduce/uci_cache/
 
 # Built release archives (attached to GitHub releases, not tracked)
 reproduce/dgbm-paper-*.tar.gz
-reproduction/results/
+reproduce/runs/
