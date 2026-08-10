@@ -1,0 +1,160 @@
+{
+  "suite_id": 336,
+  "suite_name": "Tabular benchmark numerical regression",
+  "n_tasks": 19,
+  "note": "Slurm array index -> OpenML task. The experiment scripts index openml.study.get_suite(336).tasks by array position, so this file pins the mapping in case the suite is ever reordered.",
+  "tasks": [
+    {
+      "array_index": 0,
+      "task_id": 361072,
+      "dataset_id": 44132,
+      "dataset_name": "cpu_act",
+      "dataset_version": 8,
+      "target": "usr"
+    },
+    {
+      "array_index": 1,
+      "task_id": 361073,
+      "dataset_id": 44133,
+      "dataset_name": "pol",
+      "dataset_version": 11,
+      "target": "foo"
+    },
+    {
+      "array_index": 2,
+      "task_id": 361074,
+      "dataset_id": 44134,
+      "dataset_name": "elevators",
+      "dataset_version": 8,
+      "target": "Goal"
+    },
+    {
+      "array_index": 3,
+      "task_id": 361076,
+      "dataset_id": 44136,
+      "dataset_name": "wine_quality",
+      "dataset_version": 6,
+      "target": "quality"
+    },
+    {
+      "array_index": 4,
+      "task_id": 361077,
+      "dataset_id": 44137,
+      "dataset_name": "Ailerons",
+      "dataset_version": 6,
+      "target": "goal"
+    },
+    {
+      "array_index": 5,
+      "task_id": 361078,
+      "dataset_id": 44138,
+      "dataset_name": "houses",
+      "dataset_version": 6,
+      "target": "medianhousevalue"
+    },
+    {
+      "array_index": 6,
+      "task_id": 361079,
+      "dataset_id": 44139,
+      "dataset_name": "house_16H",
+      "dataset_version": 11,
+      "target": "price"
+    },
+    {
+      "array_index": 7,
+      "task_id": 361080,
+      "dataset_id": 44140,
+      "dataset_name": "diamonds",
+      "dataset_version": 6,
+      "target": "price"
+    },
+    {
+      "array_index": 8,
+      "task_id": 361081,
+      "dataset_id": 44141,
+      "dataset_name": "Brazilian_houses",
+      "dataset_version": 9,
+      "target": "totalBRL"
+    },
+    {
+      "array_index": 9,
+      "task_id": 361082,
+      "dataset_id": 44142,
+      "dataset_name": "Bike_Sharing_Demand",
+      "dataset_version": 8,
+      "target": "count"
+    },
+    {
+      "array_index": 10,
+      "task_id": 361083,
+      "dataset_id": 44143,
+      "dataset_name": "nyc-taxi-green-dec-2016",
+      "dataset_version": 10,
+      "target": "tipamount"
+    },
+    {
+      "array_index": 11,
+      "task_id": 361084,
+      "dataset_id": 44144,
+      "dataset_name": "house_sales",
+      "dataset_version": 8,
+      "target": "price"
+    },
+    {
+      "array_index": 12,
+      "task_id": 361085,
+      "dataset_id": 44145,
+      "dataset_name": "sulfur",
+      "dataset_version": 4,
+      "target": "y1"
+    },
+    {
+      "array_index": 13,
+      "task_id": 361086,
+      "dataset_id": 44146,
+      "dataset_name": "medical_charges",
+      "dataset_version": 11,
+      "target": "AverageTotalPayments"
+    },
+    {
+      "array_index": 14,
+      "task_id": 361087,
+      "dataset_id": 44147,
+      "dataset_name": "MiamiHousing2016",
+      "dataset_version": 4,
+      "target": "SALEPRC"
+    },
+    {
+      "array_index": 15,
+      "task_id": 361088,
+      "dataset_id": 44148,
+      "dataset_name": "superconduct",
+      "dataset_version": 4,
+      "target": "criticaltemp"
+    },
+    {
+      "array_index": 16,
+      "task_id": 361279,
+      "dataset_id": 45032,
+      "dataset_name": "yprop_4_1",
+      "dataset_version": 4,
+      "target": "oz252"
+    },
+    {
+      "array_index": 17,
+      "task_id": 361280,
+      "dataset_id": 45033,
+      "dataset_name": "abalone",
+      "dataset_version": 16,
+      "target": "Classnumberofrings"
+    },
+    {
+      "array_index": 18,
+      "task_id": 361281,
+      "dataset_id": 45034,
+      "dataset_name": "delays_zurich_transport",
+      "dataset_version": 3,
+      "target": "delay"
+    }
+  ]
+}

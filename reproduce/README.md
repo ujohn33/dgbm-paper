@@ -112,6 +112,47 @@ Run `bash reproduce/collect_env.sh` to regenerate the full environment report.
 
 ---
 
+## 1.3 Datasets
+
+Neither benchmark's raw data lives in this repository; both are fetched from
+their canonical archives, which are themselves persistent.
+
+**OpenML (19 datasets).** Retrieved at run time from OpenML benchmark suite 336
+("Tabular benchmark numerical regression"). The scripts index
+`openml.study.get_suite(336).tasks` by Slurm array position, so
+`reproduce/openml_suite336_tasks.json` pins the mapping -- array index, task ID,
+dataset ID, dataset **version** and target -- in case the suite is ever
+reordered or a dataset is revised. Nothing needs downloading by hand; set
+`OPENML_APIKEY` only if you hit rate limits.
+
+**UCI (10 datasets).** These arrive three different ways, and one of them is a
+trap for anyone cloning fresh:
+
+| Source | Datasets |
+|---|---|
+| Vendored in the `ngboost` submodule | Kin8nm, Naval Propulsion, Combined Cycle Power Plant, Protein Structure |
+| Downloaded from `archive.ics.uci.edu` at run time | Boston Housing, Concrete Compression Strength, Energy Efficiency, Wine Quality Red, Yacht Hydrodynamics |
+| Gitignored inside the submodule, **absent from a fresh clone** | Year Prediction MSD (448 MB) |
+
+Run this once after cloning:
+
+```bash
+bash reproduce/fetch_uci_data.sh
+```
+
+It downloads what is missing (including Year Prediction MSD, which otherwise
+makes UCI dataset index 9 fail with `FileNotFoundError`), caches the five
+network-fetched files under `reproduce/uci_cache/` so later runs do not depend
+on UCI staying reachable, and verifies every file against the SHA-256 of the
+exact bytes behind the published numbers. `--verify` checks without
+downloading.
+
+All five UCI URLs resolved when this was written, and all ten checksums matched.
+A `MISMATCH` therefore means the upstream copy changed after publication, and
+any difference in results should be attributed there first.
+
+---
+
 ## 2. Experimental protocol (must match the paper)
 
 | Item | OpenML suite 336 | UCI (NGBoost protocol) |

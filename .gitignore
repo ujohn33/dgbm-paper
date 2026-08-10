@@ -24,3 +24,6 @@ logs/openml/xgboost/*
 
 # Result CSVs backing the paper's tables are tracked
 !results/
+
+# Cached UCI downloads: fetched and checksum-verified by reproduce/fetch_uci_data.sh
+reproduce/uci_cache/
