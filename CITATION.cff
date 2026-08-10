@@ -3,7 +3,7 @@ message: "If you use this software, please cite the paper below."
 title: "DGBM: Distributional Gradient Boosting Machines"
 type: software
 license: Apache-2.0
-repository-code: "https://github.com/ujohn33/LSSboost_test"
+repository-code: "https://github.com/ujohn33/dgbm-paper"
 authors:
   - family-names: "März"
     given-names: "Alexander"

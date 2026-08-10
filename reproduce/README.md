@@ -17,7 +17,7 @@ the published results.
 ## 1. Installation
 
 ```bash
-git clone --recurse-submodules https://github.com/ujohn33/LSSboost_test LSSboost
+git clone --recurse-submodules https://github.com/ujohn33/dgbm-paper LSSboost
 cd LSSboost
 ```
 
