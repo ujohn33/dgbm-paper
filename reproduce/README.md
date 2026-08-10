@@ -45,8 +45,9 @@ python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r reproduce/requirements-distiboost_311.txt
 ```
 
-`reproduce/requirements-*.txt` are `pip freeze` dumps of the three environments
-that were actually used:
+`reproduce/requirements-*.txt` cover the four environments that were used. The
+first three are `pip freeze` dumps of the live venvs; `requirements-gpboost.txt`
+is hand-written, because that venv no longer exists (see below):
 
 | File                                  | Used for                                        |
 |---------------------------------------|-------------------------------------------------|
