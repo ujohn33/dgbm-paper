@@ -6,10 +6,10 @@
 	url = https://github.com/ujohn33/ngboost_fork
 [submodule "properscoring"]
 	path = properscoring
-	url = git@github.com:tozech/properscoring.git
+	url = https://github.com/tozech/properscoring
 [submodule "pgbm"]
 	path = pgbm
-	url = git@github.com:elephaint/pgbm.git
+	url = https://github.com/elephaint/pgbm
 [submodule "XGBoostLSS"]
 	path = XGBoostLSS
 	url = https://github.com/ujohn33/XGBoostLSS
