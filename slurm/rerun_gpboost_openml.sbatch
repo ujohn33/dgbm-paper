@@ -18,6 +18,7 @@ module load openpyxl/3.1.2-GCCcore-12.3.0
 source $VSC_SCRATCH/venvs/gpboost_repro/bin/activate
 cd /scratch/brussel/105/vsc10528/LSSboost
 
+mkdir -p logs/openml/predictions logs/openml/fold_metrics results/openml
 export OPENML_CACHE_DIR="$VSC_SCRATCH/openml_cache"
 mkdir -p "$OPENML_CACHE_DIR"
 

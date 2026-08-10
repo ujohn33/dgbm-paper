@@ -5,6 +5,12 @@ def log_predictions(fold, dataset_name, y_test, mu, std, quantile_preds, file_pa
     """Logs the predictions to a CSV file."""
     header = ["fold", "dataset", "true_value", "mu", "std", "quantile_0.1", "quantile_0.5", "quantile_0.9"]
 
+    # Create the parent directory if it does not exist yet: the log directories
+    # are gitignored, so they are absent from a fresh clone.
+    parent = os.path.dirname(file_path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
     # Check if the file exists
     file_exists = os.path.isfile(file_path)
     # Open the file in append mode ('a+')
