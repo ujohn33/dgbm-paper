@@ -201,7 +201,7 @@ def run_single_arguement(run_seed):
         #     xgblss.start_values = np.array([np.array(0.5) for _ in range(xgblss.dist.n_dist_param)])
 
         opt_param = xgblss.hyper_opt(current_param_dict, full_train_data, num_boost_round=args["n_est"],
-                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=80, n_trials=20,
+                                    nfold=args['n_splits'], early_stopping_rounds=20, max_minutes=1440, n_trials=200,
                                     silence=True, seed=args['random_state'], hp_seed=args['random_state'])
         opt_params = opt_param.copy()
 
