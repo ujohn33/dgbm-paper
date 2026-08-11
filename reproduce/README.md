@@ -104,7 +104,7 @@ UCI dataset indices, in the order the scripts expect:
 | HPO | once per dataset, on fold 0 | repeated inside every fold |
 | TPE trials | DGBM 80; GPBoost, PGBM 20; NGBoost, XLSF 10 | DGBM-LGB 200; DGBM-XGB, GPBoost 20; XLSF 10. NGBoost and PGBM use their published configurations |
 | Study cap | 24 h wall-clock per study | 24 h wall-clock per study |
-| Boosting rounds | ≤2000, chosen by early stopping | ≤2000, chosen by early stopping |
+| Boosting rounds | ≤2000, chosen by early stopping | ≤2000, chosen by early stopping — **except DGBM-XGB, which uses ≤200** |
 | Early-stopping patience | 20 rounds on the 20% validation split (inside the tuning CV: 2000 for DGBM-LGB, 20 otherwise) | 20 rounds |
 | CRPS | 100 samples per predictive distribution | 100 samples per predictive distribution |
 
