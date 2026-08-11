@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --output=./report/%A_rerun_DGB-XGB_uci/slurm-%A_%a.out
 #SBATCH --job-name=rr_xgb_uci
-#SBATCH --time=2-00:00:00
+#SBATCH --time=4-00:00:00
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=60G

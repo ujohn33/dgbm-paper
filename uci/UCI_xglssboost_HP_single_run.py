@@ -83,7 +83,7 @@ args = {
     "natural_grad": natural_grad,
     "clip_value": clip_value,
     "stabilization": stabilization, # None, 'L2', "MAD"    
-    "n_est": 200,
+    "n_est": 2000,
     "n_splits": 20,
     "score": "MLE",
     "distn": "Normal",
