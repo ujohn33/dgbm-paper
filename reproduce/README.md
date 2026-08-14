@@ -102,9 +102,9 @@ UCI dataset indices, in the order the scripts expect:
 | Splits | task-defined folds; fold 0 for HPO, the rest for evaluation | 20 random 90/10 permutations (5 for Protein Structure; 1 fixed split for Year MSD, first 463,715 rows = train) |
 | Seed | `run_seed = 123` — TPE, booster seeds, train/val split `123+fold`, CRPS sampler `123 + 1000*task_id + fold` | the dataset index (0–9) seeds NumPy, TPE and the train/val split |
 | HPO | once per dataset, on fold 0 | repeated inside every fold |
-| TPE trials | DGBM 80; GPBoost, PGBM 20; NGBoost, XLSF 10 | DGBM-LGB 200; DGBM-XGB, GPBoost 20; XLSF 10. NGBoost and PGBM use their published configurations |
+| TPE trials | DGBM 80; GPBoost, PGBM 20; NGBoost, XLSF 10 | DGBM 200; GPBoost 20; XLSF 10. NGBoost and PGBM use their published configurations |
 | Study cap | 24 h wall-clock per study | 24 h wall-clock per study |
-| Boosting rounds | ≤2000, chosen by early stopping | ≤2000, chosen by early stopping — **except DGBM-XGB, which uses ≤200** |
+| Boosting rounds | ≤2000, chosen by early stopping | ≤2000, chosen by early stopping |
 | Early-stopping patience | 20 rounds on the 20% validation split (inside the tuning CV: 2000 for DGBM-LGB, 20 otherwise) | 20 rounds |
 | CRPS | 100 samples per predictive distribution | 100 samples per predictive distribution |
 

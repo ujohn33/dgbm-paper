@@ -26,22 +26,21 @@ ranked on the same footing. The count is printed for each diagram, and it is
 what the paper reports: 9 UCI datasets (GPBoost timed out on Year Prediction
 MSD) and, where GPBoost OpenML results are present, 17 OpenML datasets.
 
-Provenance caveat
------------------
-These diagrams are rebuilt from the result CSVs in this repository, which do not
-cover every cell of the published tables. On UCI, DGBM-LGB, GPBoost, PGBM and
-XLSF reproduce the paper's NLL table exactly; the DGBM-XGB and NGBoost CSVs kept
-here are from different runs than the ones tabulated, and no GPBoost OpenML CSV
-was preserved at all. The regenerated diagrams therefore differ slightly from
-the published ones in rank values, though not in the ordering of the leading
-methods. Rerunning the affected method/suite combinations with the scripts in
-`openml/` and `uci/` regenerates the missing inputs.
+Provenance
+----------
+Built from the result CSVs in this repository. GPBoost on OpenML and DGBM-XGB
+on UCI were rerun to fill gaps in the original set: GPBoost had no OpenML result
+file at all, and DGBM-XGB on UCI had been run with a tenth of DGBM-LGB's
+boosting budget. DGBM-XGB therefore reads the matched-protocol run
+(``*_n_est_2000_seed*.csv``). Rank values consequently differ from the published
+figures on the affected methods.
 
 Requires numpy, pandas, scipy and matplotlib -- all in requirements-dgbm.txt.
 """
 from __future__ import annotations
 
 import argparse
+import glob
 import itertools
 import pathlib
 import sys
@@ -56,7 +55,8 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SOURCES = {
     "uci": {
         "DGBM-LGB": "results/uci/uci_LSSboost_no_natural_exp_None.csv",
-        "DGBM-XGB": "results/uci/uci_XGLSSboost_no_natural_exp_None.csv",
+        # one file per dataset index, from the run whose protocol matches DGBM-LGB
+        "DGBM-XGB": "results/uci/uci_XGBoostLSS_*n_est_2000_seed*.csv",
         "GPBoost":  "results/uci/uci_GPboost.csv",
         "NGBoost":  "results/uci/NGboost_natural_crps_calibration_sharpness.csv",
         "PGBM":     "results/uci/uci_pgbm.csv",
@@ -65,7 +65,7 @@ SOURCES = {
     "openml": {
         "DGBM-LGB": "results/openml/openml_LSSboost_no_natural_exp_None_std_False_safety_False_job_11752126.csv",
         "DGBM-XGB": "results/openml/openml_XGBoostLSS_no_natural_exp_None_safety_False_job_11752710.csv",
-        "GPBoost":  "results/openml/openml_GPboost.csv",          # not preserved; see README
+        "GPBoost":  "results/openml/openml_GPboost.csv",
         "NGBoost":  "logs/openml/openml_NGBoost_natural.csv",
         "PGBM":     "results/openml/openml_PGBM_NLL_seeded.csv",
         "XLSF":     "results/openml/openml_GluonTS_LSF.csv",
@@ -82,10 +82,7 @@ HEADERLESS_COLUMNS = [
 METRICS = {"NLL": "NLL-mean", "CRPS": "CRPS-mean", "RMSE": "RMSE-mean"}
 
 
-def load(path: pathlib.Path) -> pd.DataFrame | None:
-    """Read a result CSV, tolerating the files written without a header."""
-    if not path.exists():
-        return None
+def _read_one(path: pathlib.Path) -> pd.DataFrame:
     df = pd.read_csv(path)
     if df.columns[0] != "dset":
         # written without a header: re-read positionally
@@ -96,7 +93,19 @@ def load(path: pathlib.Path) -> pd.DataFrame | None:
     # "Year Prediciton MSD" is misspelled in the loaders; normalise it
     df["dset"] = df["dset"].replace({"Year Prediciton MSD": "Year Prediction MSD"})
     # some files concatenate repeated runs; keep the first occurrence
-    return df.drop_duplicates(subset="dset", keep="first").set_index("dset")
+    return df.drop_duplicates(subset="dset", keep="first")
+
+
+def load(spec) -> pd.DataFrame | None:
+    """Read a result source: a single CSV, or a glob over per-dataset files."""
+    spec = str(spec)
+    paths = ([pathlib.Path(p) for p in sorted(glob.glob(spec))] if any(c in spec for c in "*?[")
+             else ([pathlib.Path(spec)] if pathlib.Path(spec).exists() else []))
+    if not paths:
+        return None
+    frames = [_read_one(p) for p in paths]
+    out = pd.concat(frames, ignore_index=True)
+    return out.drop_duplicates(subset="dset", keep="first").set_index("dset")
 
 
 def matrix(suite: str, column: str) -> tuple[pd.DataFrame, list[str]]:
