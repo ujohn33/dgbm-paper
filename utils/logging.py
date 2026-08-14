@@ -1,6 +1,8 @@
 import os
 import csv
 
+import numpy as np
+
 def log_predictions(fold, dataset_name, y_test, mu, std, quantile_preds, file_path="logs/openml/predictions_PBGM.csv"):
     """Logs the predictions to a CSV file."""
     header = ["fold", "dataset", "true_value", "mu", "std", "quantile_0.1", "quantile_0.5", "quantile_0.9"]
@@ -10,6 +12,14 @@ def log_predictions(fold, dataset_name, y_test, mu, std, quantile_preds, file_pa
     parent = os.path.dirname(file_path)
     if parent:
         os.makedirs(parent, exist_ok=True)
+
+    # Coerce everything to flat arrays. Callers pass pandas Series whose index is
+    # a permutation of the original rows, so positional indexing below would
+    # otherwise do label lookup and raise KeyError.
+    y_test = np.asarray(y_test).ravel()
+    mu = np.asarray(mu).ravel()
+    std = np.asarray(std).ravel()
+    quantile_preds = {k: np.asarray(v).ravel() for k, v in quantile_preds.items()}
 
     # Check if the file exists
     file_exists = os.path.isfile(file_path)
