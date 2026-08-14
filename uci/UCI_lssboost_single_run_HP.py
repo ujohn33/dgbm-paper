@@ -94,6 +94,29 @@ args = {
 }
 
 
+
+# Initialisation of the additive predictor. "constant" reproduces the published
+# runs, which start every distributional parameter at 0.5 regardless of the
+# data. "moment" starts at the marginal maximum-likelihood fit, so boosting does
+# not have to spend rounds walking the intercept to the target's location and
+# scale. Select with DGBM_INIT=moment.
+INIT_MODE = os.environ.get("DGBM_INIT", "constant")
+
+
+def _start_values(n_param, y, mode):
+    """Starting value of the additive predictor for a Gaussian NLL."""
+    if INIT_MODE != "moment":
+        return np.array([np.array(0.5) for _ in range(n_param)])
+    eps = 1e-8
+    mu0 = float(np.mean(y))
+    sigma0 = max(float(np.std(y)), eps)
+    if mode == "exp":                       # sigma = exp(f)
+        return np.array([mu0, np.log(sigma0)], dtype=float)
+    if mode == "softplus":                  # sigma = softplus(f)
+        return np.array([mu0, np.log(np.expm1(sigma0) + eps)], dtype=float)
+    return np.array([np.array(0.5) for _ in range(n_param)])
+
+
 def detect_categorical_features(df, threshold_unique=20, threshold_ratio=0.05):
     """
     Detect likely categorical features in a DataFrame.
@@ -236,7 +259,7 @@ def run_single_arguement(run_seed):
                     )
         )
         # Modify start values     
-        lgblss.start_values = np.array([np.array(0.5) for _ in range(lgblss.dist.n_dist_param)])
+        lgblss.start_values = _start_values(lgblss.dist.n_dist_param, y_trainall, args['mode'])
         
         # Modify parameter dictionary for Year Prediciton MSD dataset
         current_param_dict = param_dict.copy()
@@ -414,7 +437,9 @@ if __name__ == "__main__":
     seed_everything(run_seed)
     args["random_state"] = run_seed
     results = run_single_arguement(run_seed)
-    method_name = f"{method_name}_n_est_{args['n_est']}"  # Assuming args['n_estimators'] exists
+    method_name = f"{method_name}_n_est_{args['n_est']}"
+    if INIT_MODE != "constant":
+        method_name = f"{method_name}_init_{INIT_MODE}"  # Assuming args['n_estimators'] exists
     results_dir = "results/uci"
     os.makedirs(results_dir, exist_ok=True)
     file_path = os.path.join(results_dir, f"uci_{method_name}_seed{run_seed}.csv")
