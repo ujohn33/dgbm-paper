@@ -22,7 +22,7 @@ mkdir -p logs/uci/predictions logs/uci/fold_metrics results/uci
 
 # Marginal-MLE initialisation of the additive predictor; everything else is the
 # configuration reported in the paper.
-export DGBM_INIT=moment
+export DGBM_INIT=${DGBM_INIT:-moment}
 
 echo "host=$(hostname) task=$SLURM_ARRAY_TASK_ID variant=$VARIANT DGBM_INIT=$DGBM_INIT"
 case "$VARIANT" in

@@ -28,12 +28,12 @@ MSD) and, where GPBoost OpenML results are present, 17 OpenML datasets.
 
 Provenance
 ----------
-Built from the result CSVs in this repository. GPBoost on OpenML and DGBM-XGB
-on UCI were rerun to fill gaps in the original set: GPBoost had no OpenML result
-file at all, and DGBM-XGB on UCI had been run with a tenth of DGBM-LGB's
-boosting budget. DGBM-XGB therefore reads the matched-protocol run
-(``*_n_est_2000_seed*.csv``). Rank values consequently differ from the published
-figures on the affected methods.
+Built from the result CSVs in this repository. Several method/suite
+combinations were rerun to fill gaps in the original set: GPBoost had no OpenML
+result file at all, and on UCI the two DGBM variants had been run under
+different protocols. Both now read the matched-protocol runs with marginal-MLE
+initialisation (``*_n_est_2000_init_moment_seed*.csv``). Rank values
+consequently differ from the published figures on the affected methods.
 
 Requires numpy, pandas, scipy and matplotlib -- all in requirements-dgbm.txt.
 """
@@ -54,8 +54,10 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # (no natural gradient, exp response function, no stabilization).
 SOURCES = {
     "uci": {
-        "DGBM-LGB": "results/uci/uci_LSSboost_no_natural_exp_None.csv",
-        # one file per dataset index, from the run whose protocol matches DGBM-LGB
+        # both variants under the same protocol and the same (constant)
+        # initialisation, one file per dataset index. Swap the two paths for
+        # *_init_moment_seed*.csv to use marginal-MLE initialisation instead.
+        "DGBM-LGB": "results/uci/uci_LSSboost_*n_est_2000_seed*.csv",
         "DGBM-XGB": "results/uci/uci_XGBoostLSS_*n_est_2000_seed*.csv",
         "GPBoost":  "results/uci/uci_GPboost.csv",
         "NGBoost":  "results/uci/NGboost_natural_crps_calibration_sharpness.csv",
@@ -63,7 +65,11 @@ SOURCES = {
         "XLSF":     "results/uci/uci_GluonTS_LSF.csv",
     },
     "openml": {
-        "DGBM-LGB": "results/openml/openml_LSSboost_no_natural_exp_None_std_False_safety_False_job_11752126.csv",
+        # canonical run first; the targeted nyc-taxi rerun only fills what it lacks
+        "DGBM-LGB": [
+            "results/openml/openml_LSSboost_no_natural_exp_None_std_False_safety_False_job_11752126.csv",
+            "results/openml/openml_LSSboost_no_natural_exp_None_std_False_safety_False_job_13033317.csv",
+        ],
         "DGBM-XGB": "results/openml/openml_XGBoostLSS_no_natural_exp_None_safety_False_job_11752710.csv",
         "GPBoost":  "results/openml/openml_GPboost.csv",
         "NGBoost":  "logs/openml/openml_NGBoost_natural.csv",
@@ -96,11 +102,23 @@ def _read_one(path: pathlib.Path) -> pd.DataFrame:
     return df.drop_duplicates(subset="dset", keep="first")
 
 
-def load(spec) -> pd.DataFrame | None:
-    """Read a result source: a single CSV, or a glob over per-dataset files."""
+def _expand(spec) -> list:
     spec = str(spec)
-    paths = ([pathlib.Path(p) for p in sorted(glob.glob(spec))] if any(c in spec for c in "*?[")
-             else ([pathlib.Path(spec)] if pathlib.Path(spec).exists() else []))
+    if any(c in spec for c in "*?["):
+        return [pathlib.Path(p) for p in sorted(glob.glob(spec))]
+    return [pathlib.Path(spec)] if pathlib.Path(spec).exists() else []
+
+
+def load(spec) -> pd.DataFrame | None:
+    """Read a result source.
+
+    Accepts a single CSV, a glob over per-dataset files, or a list of either in
+    priority order: earlier entries win, later entries only fill datasets the
+    earlier ones do not cover. That keeps the canonical run authoritative while
+    letting a targeted rerun supply a dataset it was missing.
+    """
+    specs = spec if isinstance(spec, (list, tuple)) else [spec]
+    paths = [p for sp in specs for p in _expand(sp)]
     if not paths:
         return None
     frames = [_read_one(p) for p in paths]
@@ -112,7 +130,7 @@ def matrix(suite: str, column: str) -> tuple[pd.DataFrame, list[str]]:
     """Build a datasets x methods matrix for one metric; report missing sources."""
     series, missing = {}, []
     for method, rel in SOURCES[suite].items():
-        df = load(REPO_ROOT / rel)
+        df = load([REPO_ROOT / r for r in rel] if isinstance(rel, (list, tuple)) else REPO_ROOT / rel)
         if df is None:
             missing.append(f"{method} ({rel})")
             continue
@@ -246,7 +264,7 @@ def make_time_figures(outdir: pathlib.Path) -> None:
         pooled: dict[str, list[float]] = {}
         for suite in ("uci", "openml"):
             for method, rel in SOURCES[suite].items():
-                df = load(REPO_ROOT / rel)
+                df = load([REPO_ROOT / r for r in rel] if isinstance(rel, (list, tuple)) else REPO_ROOT / rel)
                 if df is None or column not in df.columns:
                     continue
                 vals = pd.to_numeric(df[column], errors="coerce").dropna()

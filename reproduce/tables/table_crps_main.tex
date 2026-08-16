@@ -1,0 +1,46 @@
+\begin{table}[h!]
+    \centering
+    \caption{Continuous ranked probability score (CRPS, lower is better) of DGBM-LGB, DGBM-XGB, and benchmark methods on OpenML and UCI datasets (mean $\pm$ std over folds). Best values per dataset in bold; ``---'' marks runs that exceeded their wall-clock limit (Section~\ref{sec:reproducibility}); $^{\ddagger}$ marks cells carried over from the earlier runs, whose result files were not preserved and whose regeneration is still in progress.}
+    \label{tab:crps_main}
+    \adjustbox{max width=\textwidth}{
+      \begin{tabular}{lrrrrrr}
+      \toprule
+      \textbf{Dataset} & \textbf{DGBM-LGB} & \textbf{DGBM-XGB} & \textbf{GPBoost} & \textbf{NGBoost} & \textbf{PGBM} & \textbf{XLSF} \\
+      \midrule
+      \multicolumn{7}{c}{\textbf{OpenML Datasets}} \\
+      \midrule
+      Ailerons & \textbf{0.00±0.00} & \textbf{0.00±0.00} & 78.78±4.14 & \textbf{0.00±0.00} & \textbf{0.00±0.00} & \textbf{0.00±0.00} \\
+      Bike\_Sharing\_Demand & \textbf{46.37±1.43} & 48.44±1.47 & 74.84±1.98 & 46.84±1.43 & 97.90±1.85 & 48.39±1.29 \\
+      Brazilian\_houses & \textbf{0.01±0.00} & \textbf{0.01±0.00} & 0.10±0.00 & \textbf{0.01±0.00} & 0.46±0.01 & \textbf{0.01±0.00} \\
+      MiamiHousing2016 & \textbf{0.08±0.00} & \textbf{0.08±0.00} & 0.13±0.01 & \textbf{0.08±0.00} & 0.31±0.01 & 0.09±0.00 \\
+      abalone & \textbf{1.11±0.06} & 1.14±0.05 & 1.54±0.07 & 1.13±0.05 & 1.74±0.08 & \textbf{1.11±0.04} \\
+      cpu\_act & \textbf{1.24±0.03} & 1.51±0.07 & 3.21±0.35 & 1.29±0.02 & 7.46±0.57 & 1.52±0.06 \\
+      diamonds & \textbf{0.13±0.00} & \textbf{0.13±0.00} & 0.19±0.00 & \textbf{0.13±0.00} & 0.59±0.00 & \textbf{0.13±0.00} \\
+      elevators & \textbf{0.00±0.00} & \textbf{0.00±0.00} & 3.02±0.16 & \textbf{0.00±0.00} & \textbf{0.00±0.00} & \textbf{0.00±0.00} \\
+      house\_16H & \textbf{0.21±0.01} & 0.22±0.01 & 0.32±0.01 & 0.25±0.01 & 0.43±0.01 & 0.23±0.01 \\
+      house\_sales & \textbf{0.09±0.00} & 0.10±0.00 & 0.16±0.00 & 0.10±0.00 & 0.29±0.01 & 0.10±0.00 \\
+      houses & \textbf{0.12±0.00} & \textbf{0.12±0.00} & 0.20±0.00 & 0.13±0.00 & 0.33±0.00 & 0.13±0.00 \\
+      medical\_charges & \textbf{0.04±0.00} & \textbf{0.04±0.00} & 0.05±0.00 & \textbf{0.04±0.00} & 0.31±0.00 & \textbf{0.04±0.00} \\
+      nyc-taxi-green-dec-2016 & 0.18±0.00 & 0.19±0.00 & --- & 0.16±0.03$^{\ddagger}$ & 0.35±0.00$^{\ddagger}$ & \textbf{0.13±0.00} \\
+      pol & 2.87±1.22 & 4.71±0.28 & 6.44±0.24 & 2.76±0.13 & 20.87±0.55 & \textbf{1.26±0.11} \\
+      sulfur & \textbf{0.01±0.00} & \textbf{0.01±0.00} & 0.16±0.03 & \textbf{0.01±0.00} & 0.02±0.00 & \textbf{0.01±0.00} \\
+      superconduct & 4.87±0.15 & 5.78±0.18 & 7.50±0.12 & 4.69±0.10 & 18.76±0.31 & \textbf{4.45±0.13} \\
+      wine\_quality & 0.38±0.02 & 0.38±0.01 & 0.49±0.02 & 0.38±0.01 & 0.50±0.01 & \textbf{0.34±0.01} \\
+      yprop\_4\_1 & \textbf{0.01±0.00} & \textbf{0.01±0.00} & 0.39±0.05 & \textbf{0.01±0.00} & 0.02±0.00 & \textbf{0.01±0.00} \\
+      \midrule
+      \multicolumn{7}{c}{\textbf{UCI Datasets}} \\
+      \midrule
+      Boston Housing & 2.05±0.38 & 3.04±0.55 & \textbf{1.54±0.28} & \textbf{1.54±0.17} & 4.60±0.63 & 2.32±0.53 \\
+      Combined Cycle Power Plant & \textbf{1.86±0.08} & 2.11±0.11 & 3.85±0.03 & 1.95±0.08 & 9.86±0.26 & 2.01±0.09 \\
+      Concrete Compression Strength & 3.03±0.39 & 4.92±1.31 & 3.13±0.25 & \textbf{2.66±0.26} & 9.27±0.38 & 3.48±0.26 \\
+      Energy Efficiency & 0.33±0.07 & 1.50±1.10 & 0.36±0.04 & \textbf{0.24±0.02} & 5.69±0.27 & 0.54±0.13 \\
+      Kin8nm & 0.09±0.00 & \textbf{0.08±0.00} & \textbf{0.08±0.00} & 0.09±0.00 & 0.15±0.01 & 0.09±0.00 \\
+      Naval Propulsion & \textbf{0.00±0.00} & \textbf{0.00±0.00} & \textbf{0.00±0.00} & \textbf{0.00±0.00} & 0.29±0.43 & \textbf{0.00±0.00} \\
+      Protein Structure & 2.25±0.07 & 2.55±0.06 & 2.13±0.01 & 2.47±0.03 & 3.62±0.01 & \textbf{2.07±0.11} \\
+      Wine Quality Red & 0.34±0.02 & 0.34±0.02 & 0.34±0.02 & 0.34±0.02 & 0.38±0.05 & \textbf{0.30±0.03} \\
+      Yacht Hydrodynamics & 1.14±0.46 & 3.61±1.52 & 1.41±0.29 & \textbf{0.27±0.09} & 6.48±1.52 & 1.20±0.50 \\
+      Year Prediction MSD & 4.52±0.00 & \textbf{4.50±0.00} & --- & 6.02±0.00 & 5.90±0.00 & 4.66±0.00 \\
+      \bottomrule
+      \end{tabular}%
+    }
+\end{table}

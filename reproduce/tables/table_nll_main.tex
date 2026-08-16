@@ -1,0 +1,46 @@
+\begin{table}[h!]
+    \centering
+    \caption{Negative log-likelihood (NLL, lower is better) of DGBM-LGB, DGBM-XGB, and benchmark methods on OpenML and UCI datasets (mean $\pm$ std over folds). Best values per dataset in bold; ``---'' marks runs that exceeded their wall-clock limit (Section~\ref{sec:reproducibility}); $^{\ddagger}$ marks cells carried over from the earlier runs, whose result files were not preserved and whose regeneration is still in progress.}
+    \label{tab:nll_main}
+    \adjustbox{max width=\textwidth}{
+      \begin{tabular}{lrrrrrr}
+      \toprule
+      \textbf{Dataset} & \textbf{DGBM-LGB} & \textbf{DGBM-XGB} & \textbf{GPBoost} & \textbf{NGBoost} & \textbf{PGBM} & \textbf{XLSF} \\
+      \midrule
+      \multicolumn{7}{c}{\textbf{OpenML Datasets}} \\
+      \midrule
+      Ailerons & \textbf{-7.48±0.03} & -7.47±0.03 & 6.36±0.04 & -7.43±0.03 & -6.75±0.42 & -5.98±0.00 \\
+      Bike\_Sharing\_Demand & \textbf{5.46±0.04} & 5.51±0.04 & 6.13±0.03 & 5.53±0.04 & 5.89±0.03 & 5.59±0.04 \\
+      Brazilian\_houses & \textbf{-2.98±0.06} & -2.85±0.20 & -0.45±0.07 & -2.51±0.04 & -2.58±0.05 & -1.65±0.50 \\
+      MiamiHousing2016 & -0.57±0.06 & \textbf{-0.58±0.07} & -0.27±0.04 & -0.56±0.06 & -0.54±0.05 & -0.21±0.11 \\
+      abalone & \textbf{2.09±0.07} & 2.11±0.06 & 2.18±0.07 & 2.12±0.06 & 2.49±0.14 & 2.15±0.06 \\
+      cpu\_act & 9.16±19.54 & 2.75±0.58 & 3.43±0.09 & 2.23±0.13 & \textbf{2.21±0.03} & 2.37±0.06 \\
+      diamonds & \textbf{-0.07±0.01} & -0.06±0.01 & -0.00±0.01 & -0.06±0.01 & 0.01±0.02 & -0.04±0.01 \\
+      elevators & -4.76±0.03 & -4.70±0.03 & 3.49±0.06 & \textbf{-4.77±0.03} & -4.44±0.60 & -4.38±0.09 \\
+      house\_16H & \textbf{0.36±0.06} & 0.40±0.06 & 0.87±0.10 & 0.56±0.10 & 0.53±0.11 & 0.86±0.28 \\
+      house\_sales & \textbf{-0.42±0.02} & -0.39±0.02 & -0.11±0.02 & -0.38±0.03 & -0.31±0.02 & -0.19±0.03 \\
+      houses & \textbf{-0.19±0.05} & -0.18±0.06 & 0.10±0.02 & -0.10±0.04 & -0.08±0.04 & 0.04±0.07 \\
+      medical\_charges & \textbf{-1.21±0.03} & \textbf{-1.21±0.04} & -1.05±0.02 & \textbf{-1.21±0.03} & -0.77±0.06 & -1.05±0.03 \\
+      nyc-taxi-green-dec-2016 & -0.21±0.13 & 0.01±0.11 & --- & \textbf{-0.51±0.03}$^{\ddagger}$ & 0.57±0.01$^{\ddagger}$ & -0.02±0.06 \\
+      pol & \textbf{1.53±2.64} & 1.73±0.44 & 3.73±0.02 & 2.58±0.44 & 3.04±0.04 & 2.27±0.10 \\
+      sulfur & \textbf{-2.91±0.04} & \textbf{-2.91±0.08} & 1.17±0.14 & -2.62±0.62 & -2.88±0.08 & -2.54±0.83 \\
+      superconduct & \textbf{3.29±0.09} & 3.60±0.39 & 3.92±0.02 & 3.44±0.27 & 3.59±0.04 & 3.49±0.24 \\
+      wine\_quality & 0.99±0.04 & 1.01±0.03 & \textbf{0.97±0.03} & 1.02±0.03 & 1.07±0.07 & 1.06±0.04 \\
+      yprop\_4\_1 & \textbf{-2.16±0.18} & -2.14±0.21 & 1.16±0.10 & -2.14±0.22 & -1.59±0.73 & -2.08±0.24 \\
+      \midrule
+      \multicolumn{7}{c}{\textbf{UCI Datasets}} \\
+      \midrule
+      Boston Housing & 2.76±0.29 & 2.86±0.26 & \textbf{2.47±0.23} & 2.60±0.27 & 2.74±0.43 & 2.99±0.42 \\
+      Combined Cycle Power Plant & \textbf{2.64±0.07} & 2.88±0.38 & 3.62±0.00 & 2.79±0.20 & 2.69±0.09 & 2.76±0.06 \\
+      Concrete Compression Strength & 3.21±0.26 & 3.48±0.27 & 3.23±0.20 & 3.08±0.18 & \textbf{2.88±0.11} & 3.32±0.14 \\
+      Energy Efficiency & 2.09±4.57 & 1.30±0.74 & 1.02±0.08 & 0.71±0.61 & \textbf{0.69±0.17} & 1.23±0.37 \\
+      Kin8nm & -0.53±0.03 & \textbf{-0.57±0.04} & -0.35±0.01 & -0.41±0.03 & -0.54±0.06 & -0.38±0.05 \\
+      Naval Propulsion & \textbf{-5.58±0.07} & -4.53±2.51 & -3.54±0.12 & -4.93±0.03 & -0.74±1.01 & -4.88±0.30 \\
+      Protein Structure & \textbf{2.76±0.07} & 2.91±0.07 & 2.80±0.00 & 2.85±0.02 & 2.82±0.01 & 2.87±0.07 \\
+      Wine Quality Red & \textbf{0.92±0.10} & 1.10±0.48 & 0.93±0.04 & 1.14±0.28 & 1.76±0.56 & 0.96±0.10 \\
+      Yacht Hydrodynamics & \textbf{0.32±0.41} & 1.68±0.71 & 2.37±0.11 & 2.04±2.35 & \textbf{0.32±0.43} & 1.03±0.26 \\
+      Year Prediction MSD & \textbf{3.42±0.00} & 3.43±0.00 & --- & 3.47±0.00 & 3.61±0.00 & 3.57±0.00 \\
+      \bottomrule
+      \end{tabular}%
+    }
+\end{table}
