@@ -252,7 +252,7 @@ def run_single_argument(task_id):
         nll_test = -norm(mu, std).logpdf(y_test).mean()
 
         rng = np.random.default_rng(run_seed + task_id * 1000 + fold)
-        samples = np.array([[rng.normal(loc=loc, scale=np.std(scale), size=100) for loc, scale in zip(mu, std)]])
+        samples = np.array([[rng.normal(loc=loc, scale=scale, size=100) for loc, scale in zip(mu, std)]])
         samples = samples.reshape(samples.shape[1], samples.shape[2])
         crps_comps = crps(y_test, samples)
         crps_test = crps_comps[0]
