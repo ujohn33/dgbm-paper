@@ -1,6 +1,6 @@
 \begin{table}[h!]
     \centering
-    \caption{Continuous ranked probability score (CRPS, lower is better) of DGBM-LGB, DGBM-XGB, and benchmark methods on OpenML and UCI datasets (mean $\pm$ std over folds). Best values per dataset in bold; ``---'' marks runs that exceeded their wall-clock limit (Section~\ref{sec:reproducibility}); $^{\ddagger}$ marks cells carried over from the earlier runs, whose result files were not preserved and whose regeneration is still in progress.}
+    \caption{Continuous ranked probability score (CRPS, lower is better) of DGBM-LGB, DGBM-XGB, and benchmark methods on OpenML and UCI datasets (mean $\pm$ std over folds). Best values per dataset in bold; ``---'' marks runs that exceeded their wall-clock limit (Section~\ref{sec:reproducibility}); $^{\ddagger}$ marks cells carried over from the earlier runs, whose result files were not preserved; the values are the previously published ones.}
     \label{tab:crps_main}
     \adjustbox{max width=\textwidth}{
       \begin{tabular}{lrrrrrr}
@@ -21,7 +21,7 @@
       house\_sales & \textbf{0.09±0.00} & 0.10±0.00 & 0.12±0.00 & 0.10±0.00 & 0.29±0.01 & 0.10±0.00 \\
       houses & \textbf{0.12±0.00} & \textbf{0.12±0.00} & 0.15±0.00 & 0.13±0.00 & 0.33±0.00 & 0.13±0.00 \\
       medical\_charges & \textbf{0.04±0.00} & \textbf{0.04±0.00} & \textbf{0.04±0.00} & \textbf{0.04±0.00} & 0.31±0.00 & \textbf{0.04±0.00} \\
-      nyc-taxi-green-dec-2016 & 0.18±0.00 & 0.19±0.00 & --- & --- & --- & \textbf{0.13±0.00} \\
+      nyc-taxi-green-dec-2016 & 0.18±0.00 & 0.19±0.00 & --- & 0.16±0.03$^{\ddagger}$ & 0.35±0.00$^{\ddagger}$ & \textbf{0.13±0.00} \\
       pol & 2.87±1.22 & 4.71±0.28 & 5.45±0.14 & 2.76±0.13 & 20.87±0.55 & \textbf{1.26±0.11} \\
       sulfur & \textbf{0.01±0.00} & \textbf{0.01±0.00} & 0.33±0.03 & \textbf{0.01±0.00} & 0.02±0.00 & \textbf{0.01±0.00} \\
       superconduct & 4.87±0.15 & 5.78±0.18 & 6.37±0.09 & 4.69±0.10 & 18.76±0.31 & \textbf{4.45±0.13} \\

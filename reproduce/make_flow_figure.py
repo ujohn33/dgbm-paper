@@ -147,7 +147,7 @@ def main() -> int:
         devs = [r[fam]["PIT_deviation"] for r in runs]
         ax.set_title(f"{fam}   dev {np.mean(devs):.2f}$\\pm${np.std(devs, ddof=1):.2f}",
                      loc="left", fontsize=9, color=INK, pad=4)
-    fig.text(0.077, 0.425, "(c)  PIT histograms, mean over 10 seeds — flat (dashed) is calibrated",
+    fig.text(0.077, 0.425, "(c)  PIT histograms, mean over 10 seeds: flat (dashed) is calibrated",
              fontsize=10, color=INK, ha="left")
 
     path_pdf = args.out / "flow_calibration_figure.pdf"

@@ -1,6 +1,6 @@
 \begin{table}[h!]
     \centering
-    \caption{Negative log-likelihood (NLL, lower is better) of DGBM-LGB, DGBM-XGB, and benchmark methods on OpenML and UCI datasets (mean $\pm$ std over folds). Best values per dataset in bold; ``---'' marks runs that exceeded their wall-clock limit (Section~\ref{sec:reproducibility}); $^{\ddagger}$ marks cells carried over from the earlier runs, whose result files were not preserved and whose regeneration is still in progress.}
+    \caption{Negative log-likelihood (NLL, lower is better) of DGBM-LGB, DGBM-XGB, and benchmark methods on OpenML and UCI datasets (mean $\pm$ std over folds). Best values per dataset in bold; ``---'' marks runs that exceeded their wall-clock limit (Section~\ref{sec:reproducibility}); $^{\ddagger}$ marks cells carried over from the earlier runs, whose result files were not preserved; the values are the previously published ones.}
     \label{tab:nll_main}
     \adjustbox{max width=\textwidth}{
       \begin{tabular}{lrrrrrr}
@@ -21,7 +21,7 @@
       house\_sales & \textbf{-0.42±0.02} & -0.39±0.02 & -0.11±0.02 & -0.38±0.03 & -0.31±0.02 & -0.19±0.03 \\
       houses & \textbf{-0.19±0.05} & -0.18±0.06 & 0.10±0.02 & -0.10±0.04 & -0.08±0.04 & 0.04±0.07 \\
       medical\_charges & \textbf{-1.21±0.03} & \textbf{-1.21±0.04} & -1.05±0.02 & \textbf{-1.21±0.03} & -0.77±0.06 & -1.05±0.03 \\
-      nyc-taxi-green-dec-2016 & \textbf{-0.21±0.13} & 0.01±0.11 & --- & --- & --- & -0.02±0.06 \\
+      nyc-taxi-green-dec-2016 & -0.21±0.13 & 0.01±0.11 & --- & \textbf{-0.51±0.03}$^{\ddagger}$ & 0.57±0.01$^{\ddagger}$ & -0.02±0.06 \\
       pol & \textbf{1.53±2.64} & 1.73±0.44 & 3.73±0.02 & 2.58±0.44 & 3.04±0.04 & 2.27±0.10 \\
       sulfur & \textbf{-2.91±0.04} & \textbf{-2.91±0.08} & 1.17±0.14 & -2.62±0.62 & -2.88±0.08 & -2.54±0.83 \\
       superconduct & \textbf{3.29±0.09} & 3.60±0.39 & 3.92±0.02 & 3.44±0.27 & 3.59±0.04 & 3.49±0.24 \\

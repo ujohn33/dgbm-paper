@@ -49,15 +49,15 @@ CAPTIONS = {
             "folds). Best values per dataset in bold; ``---'' marks runs that "
             "exceeded their wall-clock limit (Section~\\ref{sec:reproducibility}); "
             "$^{\\ddagger}$ marks cells carried over from the earlier runs, whose "
-            "result files were not preserved and whose regeneration is still in progress.",
+            "result files were not preserved; the values are the previously published ones.",
             "tab:nll_main"),
     "CRPS": ("Continuous ranked probability score (CRPS, lower is better) of "
              "DGBM-LGB, DGBM-XGB, and benchmark methods on OpenML and UCI datasets "
              "(mean $\\pm$ std over folds). Best values per dataset in bold; "
              "``---'' marks runs that exceeded their wall-clock limit "
              "(Section~\\ref{sec:reproducibility}); $^{\\ddagger}$ marks cells carried "
-             "over from the earlier runs, whose result files were not preserved "
-             "and whose regeneration is still in progress.",
+             "over from the earlier runs, whose result files were not preserved; "
+             "the values are the previously published ones.",
              "tab:crps_main"),
 }
 
