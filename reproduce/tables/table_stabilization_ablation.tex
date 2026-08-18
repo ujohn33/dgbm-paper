@@ -1,0 +1,30 @@
+\begin{table}[h!]
+    \centering
+    \caption{Stabilization and natural-gradient ablation: median NLL and CRPS over the datasets that every configuration of a block completed (UCI: 10 datasets for DGBM-LGB and 10 for DGBM-XGB; OpenML: 18 and 18). Lower is better; best per column within each suite in bold. The OpenML ablation covered L2 normalization only on UCI. The paper's headline configuration is no natural gradient with no stabilization.}
+    \label{tab:stabilization_ablation}
+    \adjustbox{max width=\textwidth}{
+      \begin{tabular}{llrrrr}
+      \toprule
+      & & \multicolumn{2}{c}{\textbf{DGBM-LGB}} & \multicolumn{2}{c}{\textbf{DGBM-XGB}} \\
+      \cmidrule(lr){3-4}\cmidrule(lr){5-6}
+      \textbf{Natural} & \textbf{Stab.} & \textbf{NLL} & \textbf{CRPS} & \textbf{NLL} & \textbf{CRPS} \\
+      \midrule
+      \multicolumn{6}{c}{\textbf{UCI}} \\
+      \midrule
+      No & None & 1.851 & 1.207 & 2.261 & 1.834 \\
+      No & L2 & 2.055 & 2.290 & 2.914 & 2.377 \\
+      No & MAD & 1.877 & 1.538 & 2.493 & 2.317 \\
+      Yes & None & \textbf{1.782} & \textbf{1.011} & \textbf{1.815} & \textbf{1.112} \\
+      Yes & L2 & 2.163 & 1.996 & 2.793 & 2.103 \\
+      Yes & MAD & 2.735 & 1.811 & 2.725 & 1.702 \\
+      \midrule
+      \multicolumn{6}{c}{\textbf{OpenML}} \\
+      \midrule
+      No & None & \textbf{-0.199} & \textbf{0.125} & \textbf{-0.122} & \textbf{0.124} \\
+      No & MAD & -0.172 & 0.125 & -0.119 & 0.124 \\
+      Yes & None & -0.050 & 0.133 & -0.032 & 0.134 \\
+      Yes & MAD & -0.110 & 0.125 & -0.108 & 0.125 \\
+      \bottomrule
+      \end{tabular}%
+    }
+\end{table}
