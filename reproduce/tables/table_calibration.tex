@@ -1,0 +1,18 @@
+\begin{table}[h!]
+    \centering
+    \caption{Calibration and sharpness components of the CRPS decomposition \cite{hersbach2000decomposition}, averaged over datasets (lower is better for both). The calibration term measures probabilistic consistency independently of sharpness. ``Rank'' is the mean rank on the calibration term across datasets.}
+    \label{tab:calibration}
+    \adjustbox{max width=\textwidth}{
+      \begin{tabular}{llrrr}
+      \toprule
+      \textbf{Suite} & \textbf{Method} & \textbf{Calibration} & \textbf{Sharpness} & \textbf{Rank (cal.)} \\
+      \midrule
+      OpenML & DGBM-LGB & \textbf{6.334} & 2.948 & 2.82 \\
+       & DGBM-XGB & 7.008 & 3.322 & 3.71 \\
+       & GPBoost & 10.443 & \textbf{0.000} & 2.82 \\
+       & NGBoost & 6.411 & 3.008 & 3.18 \\
+       & PGBM & 17.455 & 8.633 & 5.53 \\
+       & XLSF & 6.482 & 3.080 & 2.94 \\
+      \bottomrule
+      \end{tabular}}
+\end{table}

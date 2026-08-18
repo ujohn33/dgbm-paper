@@ -1,0 +1,19 @@
+\begin{table}[h!]
+    \centering
+    \caption{Mean rank (lower is better) of each method on the two proper scoring rules, over the complete-case datasets of each suite (UCI: 9 datasets; OpenML: 17 datasets), matching the critical-difference diagrams. Best per column in bold; per-dataset values are in Section~6 of the supplementary material.}
+    \label{tab:rank_summary}
+      \begin{tabular}{lcccc}
+      \toprule
+      & \multicolumn{2}{c}{\textbf{UCI}} & \multicolumn{2}{c}{\textbf{OpenML}} \\
+      \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+      \textbf{Method} & \textbf{NLL} & \textbf{CRPS} & \textbf{NLL} & \textbf{CRPS} \\
+      \midrule
+      DGBM-LGB & \textbf{2.33} & \textbf{2.33} & \textbf{1.47} & \textbf{1.94} \\
+      DGBM-XGB & 4.44 & 3.89 & 2.41 & 2.88 \\
+      GPBoost & 3.89 & 3.11 & 5.41 & 5.06 \\
+      NGBoost & 3.33 & 2.67 & 3.00 & 2.76 \\
+      PGBM & 2.89 & 6.00 & 4.29 & 5.76 \\
+      XLSF & 4.11 & 3.00 & 4.41 & 2.59 \\
+      \bottomrule
+      \end{tabular}
+\end{table}
