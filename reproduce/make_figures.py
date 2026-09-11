@@ -225,7 +225,7 @@ def cd_diagram(ranks: pd.Series, cliques, n_datasets: int, title: str, out: path
     ax.text(0.5, 0.015, f"{n_datasets} datasets", transform=ax.transAxes,
             ha="center", fontsize=8, color="0.45")
     fig.tight_layout()
-    fig.savefig(out, dpi=200, bbox_inches="tight")
+    fig.savefig(out, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -297,7 +297,7 @@ def make_time_figures(outdir: pathlib.Path) -> None:
             spine.set_visible(False)
         fig.tight_layout()
         out = outdir / fname
-        fig.savefig(out, dpi=200)
+        fig.savefig(out, dpi=300)
         plt.close(fig)
         n = sum(len(pooled[m]) for m in methods)
         print(f"  wrote {out.name}  ({label}, {n} observations across {len(methods)} methods)")

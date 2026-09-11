@@ -74,7 +74,7 @@ def main() -> int:
     ax.legend(frameon=False, fontsize=8, loc="upper left")
 
     for ext in ("pdf", "png"):
-        fig.savefig(args.out / f"regressor_sweep_figure.{ext}", dpi=200,
+        fig.savefig(args.out / f"regressor_sweep_figure.{ext}", dpi=300,
                     bbox_inches="tight")
     print(f"wrote {args.out}/regressor_sweep_figure.pdf (+ .png)")
     return 0

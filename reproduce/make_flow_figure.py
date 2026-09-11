@@ -152,7 +152,7 @@ def main() -> int:
 
     path_pdf = args.out / "flow_calibration_figure.pdf"
     fig.savefig(path_pdf, bbox_inches="tight")
-    fig.savefig(args.out / "flow_calibration_figure.png", dpi=200,
+    fig.savefig(args.out / "flow_calibration_figure.png", dpi=300,
                 bbox_inches="tight")
     print(f"wrote {path_pdf} (+ .png), test point index {idx} "
           f"x0={X[idx,0]:.2f} x1={X[idx,1]:.2f}")
